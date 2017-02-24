@@ -32,14 +32,14 @@
 			name: jst_attr_begin,
 			parser: exec_call_function,
 			process: function($ctx, node, seq, nodeName, nodeValue) {
-				return execute($ctx, node, seq, nodeName, nodeValue, exec_call_function);
+				return execute($ctx, node, seq, nodeName, nodeValue);
 			}
 		},
 		{
 			name: jst_attr_if,
 			parser: exec_value_function,
 			process: function($ctx, node, seq, nodeName, nodeValue) {
-				var value = execute($ctx, node, seq, nodeName, nodeValue, exec_value_function);
+				var value = execute($ctx, node, seq, nodeName, nodeValue);
 				if(!value) {
 					return jst.node.comment($jst.id, node);
 				}
@@ -50,7 +50,7 @@
 			name: jst_attr_repeat,
 			parser: exec_repeat_function,
 			process: function($ctx, node, seq, nodeName, nodeValue) {
-				return execute($ctx, node, seq, nodeName, nodeValue, exec_repeat_function);
+				return execute($ctx, node, seq, nodeName, nodeValue);
 			}
 		},
 		{
@@ -64,7 +64,7 @@
 			name: jst_attr_filter,
 			parser: exec_value_function,
 			process: function($ctx, node, seq, nodeName, nodeValue) {
-				var value = execute($ctx, node, seq, nodeName, nodeValue, exec_value_function);
+				var value = execute($ctx, node, seq, nodeName, nodeValue);
 				if(!value) {
 					return jst.node.comment($jst.id, node);
 				}
@@ -75,7 +75,7 @@
 			name: jst_attr_case,
 			parser: exec_value_function,
 			process: function($ctx, node, seq, nodeName, nodeValue) {
-				var value = execute($ctx, node, seq, nodeName, nodeValue, exec_value_function);
+				var value = execute($ctx, node, seq, nodeName, nodeValue);
 				var comment = "<!--" + jst_attr_case + "@" + $ctx.$jst.id + "=" + seq + "-->";
 				if(!value) {
 					node.innerHTML = comment;
@@ -91,7 +91,7 @@
 			name: jst_attr_html,
 			parser: exec_value_function,
 			process: function($ctx, node, seq, nodeName, nodeValue) {
-				var value = execute($ctx, node, seq, nodeName, nodeValue, exec_value_function);
+				var value = execute($ctx, node, seq, nodeName, nodeValue);
 				if(value === undefined || value === null) {
 					value = "";
 				}
@@ -103,7 +103,7 @@
 			name: jst_attr_text,
 			parser: exec_value_function,
 			process: function($ctx, node, seq, nodeName, nodeValue) {
-				var value = execute($ctx, node, seq, nodeName, nodeValue, exec_value_function);
+				var value = execute($ctx, node, seq, nodeName, nodeValue);
 				if(value === undefined || value === null) {
 					value = "";
 				}
@@ -115,7 +115,7 @@
 			name: "*",
 			parser: exec_value_function,
 			process: function($ctx, node, seq, nodeName, nodeValue) {
-				var value = execute($ctx, node, seq, nodeName, nodeValue, exec_bind_function);
+				var value = execute($ctx, node, seq, nodeName, nodeValue);
 				jst.node.attr(node, nodeName, value)
 				return node;
 			},
@@ -124,7 +124,7 @@
 			name: jst_attr_bind,
 			parser: exec_bind_function,
 			process: function($ctx, node, seq, nodeName, nodeValue) {
-				var value = execute($ctx, node, seq, nodeName, nodeValue, exec_bind_function);
+				var value = execute($ctx, node, seq, nodeName, nodeValue);
 				if(!value.fnc) {
 					value.fnc = exec_bind;
 				}
@@ -136,14 +136,14 @@
 			name: jst_attr_call,
 			parser: exec_call_function,
 			process: function($ctx, node, seq, nodeName, nodeValue) {
-				return execute($ctx, node, seq, nodeName, nodeValue, exec_call_function);
+				return execute($ctx, node, seq, nodeName, nodeValue);
 			},
 		},
 		{
 			name: jst_attr_recursive,
 			parser: exec_value_function,
 			process: function($ctx, node, seq, nodeName, nodeValue) {
-				var value = execute($ctx, node, seq, nodeName, nodeValue, exec_value_function);
+				var value = execute($ctx, node, seq, nodeName, nodeValue);
 				if(!value) {
 					return $ctl.nextSibling;
 				}
@@ -156,7 +156,7 @@
 		name: jst_attr_end,
 		parser: exec_call_function,
 		process: function($ctx, node, seq, nodeName, nodeValue) {
-			return execute($ctx, node, seq, nodeName, nodeValue, exec_call_function);
+			return execute($ctx, node, seq, nodeName, nodeValue);
 		}
 	}];
 
@@ -436,7 +436,7 @@
 		return;
 	}
 
-	var execute = jst.execute = function($ctx, node, seq, nodeName, nodeValue, fnc) {
+	var execute = jst.execute = function($ctx, node, seq, nodeName, nodeValue) {
 		var executor = $ctx.$jst.nodes[seq].parsers[nodeName+"="+nodeValue];
 		if(executor == null){
 			return nodeValue;
