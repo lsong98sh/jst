@@ -52,25 +52,29 @@
 				dom: the output target
 				refresh: true: refresh mode, false: patch mode. default: false.
 				
-	All attributes for template direction:
-		jst-skip      : skip the procession of this node. when the node contains a large thrid party user control(eg. google map), 
-		                use jst-skip to ignore the inner content.
-		jst-begin     : call javascript before process
-		jst-if        : output self when expression is valued true
-		jst-case      : output child nodes when expression is valued true
-		jst-repeat    : repeat self 
-		jst-loop      : repeat child nodes.(still in development)
-		jst-filter    : filter condition for jst-repeat
-		jst-text      : output text.  just like node.innerText = ...
-		jst-html      : output raw html.  just like node.innerHTML = ...
-		jst-call      : execute a js function before process children
-        jst-bind      : add value change listener and binds value to an object. using jst-bind in repeat &amp; loops is not recommended 
-                        (this is an experimental feature.)
-        jst-recursive : return false to stop process children
-		jst-begin     : call javascript after process the node and it's children
-        
-		*do not use jst-if and jst-case in the same node
-		*do not use jst-repeat and jst-loop in the same node with jst filter
+	List of attributes for template direction in execution order:
+		jst-skip                : Skip the processing of this node. Used when the node contains a large third party user control(eg. google map), 
+		                          *The processing of the following directions is also skipped.
+		jst-begin               : Call javascript function before processing
+		jst-if                  : Output the node when the expression is valued true
+		jst-repeat              : Repeat the node itself 
+		jst-filter              : Filter condition for jst-repeat
+		jst-item-begin          : Call javascript function when output the node
+		jst-html                : Set the innerHTML property value to the result of the expression
+		jst-text                : Set the innerText property value to the result of the expression
+        jst-bind                : Add value change listener and binds the value to an object. 
+                                  (this is an experimental feature.)
+		jst-call                : Execute js function before processing it's child nodes
+        jst-recursive           : Skip the processing of the child nodes when the expression is valued false
+        jst-child-begin         : Call before  processing child nodes
+        jst-child-end           : Call after all child nodes have processed 
+        jst-control             : User defined controll implementation.(under construction)
+        jst-item-end            : Call javascript function after output the node and it's child nodes
+		jst-end                 : Call javascript after processing the node and it's child nodes
+
+		*do not use jst-repeat and jst-loop in the same node
+		*jst-text will over-write the output of jst-html
+
 		
 	Pre-defined varibles for template context:
 		$jst    : the jst class object
