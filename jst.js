@@ -1,42 +1,48 @@
 (function() {
-	var REGEX_VARIABLE = new RegExp(/\{\{(.+?)\}\}/g);
-	var jst_attr_prefix = window.jst_jst_attr_prefix || "jst-";
+	var REGEX_EXPRESSION = new RegExp(/\{\{(.+?)\}\}/g);
+	function uuid(len) {
+	    var i, s = [], digits = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+		len = len? len : 16;
+	    
+	    for(i = 0; i < len; i++) {
+	        s[i] = digits.substr(Math.floor(Math.random() * 62), 1);
+	    }
+	    return s.join("");
+	}
 
 	var jst = function(name, dom, preserveWhiteSpace) {
 		init(this, name, dom, preserveWhiteSpace);
 	}
 
 	jst.attrs = {};
+	
+	var jst_attr_prefix      = jst.attrs.prefix      = window.jst_jst_attr_prefix || "jst-";
+	
 	var jst_attr_skip        = jst.attrs.skip        = jst_attr_prefix + "skip";
 	var jst_attr_begin       = jst.attrs.begin       = jst_attr_prefix + "begin";
 	var jst_attr_if          = jst.attrs.if          = jst_attr_prefix + "if";
 	var jst_attr_repeat      = jst.attrs.repeat      = jst_attr_prefix + "repeat";
 	var jst_attr_filter      = jst.attrs.filter      = jst_attr_prefix + "filter";
-	var jst_attr_item_begin  = jst.attr.item_begin   = jst_attr_prefix + "item-begin";
+	var jst_attr_item_begin  = jst.attrs.item_begin   = jst_attr_prefix + "item-begin";
 	var jst_attr_html        = jst.attrs.html        = jst_attr_prefix + "html";
 	var jst_attr_text        = jst.attrs.text        = jst_attr_prefix + "text";
 	var jst_attr_bind        = jst.attrs.bind        = jst_attr_prefix + "bind";
 	var jst_attr_call        = jst.attrs.call        = jst_attr_prefix + "call";
 	var jst_attr_recursive   = jst.attrs.recursive   = jst_attr_prefix + "recursive";
-	var jst_attr_child_begin = jst.attrs.child_begin = jst_attr_prefix + "child-begin";
-	var jst_attr_child_end   = jst.attrs.child_end   = jst_attr_prefix + "child-end";
 	var jst_attr_item_end    = jst.attrs.item_end    = jst_attr_prefix + "item-end";
 	var jst_attr_end         = jst.attrs.end         = jst_attr_prefix + "end";
 	
 	var jst_other_attrs    = jst.jst_other_attrs = "*";
 	
 	var directives = jst.directives = {};
-	/* compile/startup/cleanup/process/begin/end */
+	/* compile/process/cleanup */
 	/*
 	 * compile: 
 	 *     true: continue
 	 *     false: break 
 	 *     function: if(nodeValue) create a processor & continue
-	 * startup: call before process attributes
-	 * cleanup: call after processing the attributes
 	 * process: call on each directive
-	 * begin:   call before processing the child nodes
-	 * end:     call after processing the child nodes
+	 * cleanup: call after processing the attributes
 	 * 
 	 */
 	directives[jst_attr_skip] = {
@@ -57,7 +63,8 @@
 			}
 			return true;
 		},
-		startup: function($ctx, node, seq){
+		process: function($ctx, node, seq, result, parameter){
+			result.recursive = false;
 			return false;
 		}
 	};
@@ -66,17 +73,17 @@
 		compile: function($jst, node, result, nodeName, nodeValue) {
 			if(nodeValue != null){
 				node.removeAttribute(jst_attr_begin);
-				result.parameters.push({directive: directives[jst_attr_begin], name: nodeName, value: nodeValue, processor: exec_call_function.create(nodeValue) });
+				result.parameters.push({directive: directives[jst_attr_begin], name: nodeName, value: nodeValue, processor: exec_call_function.create($jst, nodeValue) });
 			}
 			return true;
 		},
-		startup: function($ctx, node, seq, parameter) {
+		process: function($ctx, node, seq, result, parameter) {
 			if(parameter.processor){
 				parameter.processor($ctx, node);
 			}
 			return true;
 		},
-		cleanup: function($ctx, node, seq, parameter) {
+		cleanup: function($ctx, node, seq, result, parameter) {
 			var i, parameter, parameters = $ctx.$jst.nodes[seq].parameters;
 			for(i=parameters.length-1; i > 0; -- i){
 				if(parameters[i].directive && parameters[i].directive.name == jst_attr_end){
@@ -92,17 +99,18 @@
 		name: jst_attr_if,
 		compile: function($jst, node, result, nodeName, nodeValue) {
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_if], name: nodeName, value: nodeValue, processor: exec_value_function.create(nodeValue) });
+				result.parameters.push({directive: directives[jst_attr_if], name: nodeName, value: nodeValue, processor: exec_value_function.create($jst, nodeValue) });
 				node.removeAttribute(nodeName);	
 			}
 			return true;
 		},
-		process: function($ctx, node, seq, parameter) {
+		process: function($ctx, node, seq, result, parameter) {
 			var value = parameter.processor? parameter.processor($ctx, node) : false;
 			if(value.toString().indexOf("@") == 0){
 				var comment = "<!--" + jst_attr_if + "@" + $ctx.$jst.id + "=" + seq + "-->";
 				if(value=="@" || value.toLowerCase() == "@false" || value == "@0") {
 					node.innerHTML = comment;
+					result.recursive = false;
 					return false;
 				} else {
 					if(node.innerHTML == comment) {
@@ -111,7 +119,9 @@
 				}
 			}else{
 				if(!value) {
-					return jst.node.comment($ctx.$jst.id, node);
+					result.node = jst.node.comment($ctx.$jst.id, node);
+					result.recursive = false;
+					return false;
 				}
 			}
 			return true;
@@ -121,13 +131,22 @@
 		name: jst_attr_repeat,
 		compile: function($jst, node, result, nodeName, nodeValue) {
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_repeat], name: nodeName, value: nodeValue, processor: exec_repeat_function.create(nodeValue) });
+				result.parameters.push({directive: directives[jst_attr_repeat], name: nodeName, value: nodeValue, processor: exec_repeat_function.create($jst, nodeValue) });
 			}
 			return true;
 		},
-		process: function($ctx, node, seq, parameter) {
+		process: function($ctx, node, seq, result, parameter) {
 			if(parameter && parameter.processor){
-				return parameter.processor($ctx, node);
+				var i, start_idx = 0, parameters = $ctx.$jst.nodes[seq].parameters;
+				for(i = 0; i < parameters.length; ++ i){
+					if(parameters[i].name == jst.attrs.repeat){
+						start_idx = i + 1;
+						break;
+					}
+				}
+				result.node = parameter.processor($ctx, node, start_idx);
+				result.recursive = false;
+				return false;
 			}else{
 				return true;
 			}
@@ -141,29 +160,62 @@
 				nodeValue = null;
 			}
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_filter], name: nodeName, value: nodeValue, processor: exec_value_function.create(nodeValue) });
+				result.parameters.push({directive: directives[jst_attr_filter], name: nodeName, value: nodeValue, processor: exec_value_function.create($jst, nodeValue) });
 			}
+			node.removeAttribute(jst_attr_filter);
 			return true;
 		},
-		process: function($ctx, node, seq, parameter) {
+		process: function($ctx, node, seq, result, parameter) {
 			var value = parameter.processor? parameter.processor($ctx, node) : false;
 			if(!value) {
-				return jst.node.comment($ctx.$jst.id, node);
+				result.node = jst.node.comment($ctx.$jst.id, node);
+				return false;
 			}
 			return true;
 		}
 	};
+	directives[jst_attr_item_begin] = {
+		name: jst_attr_begin,
+		compile: function($jst, node, result, nodeName, nodeValue) {
+			if(node.getAttribute(jst_attr_repeat) == null){
+				node.removeAttribute(nodeName);	
+				nodeValue = null;
+			}
+			if(nodeValue != null){
+				result.parameters.push({directive: directives[jst_attr_item_begin], name: nodeName, value: nodeValue, processor: exec_call_function.create($jst, nodeValue) });
+				node.removeAttribute(nodeName);	
+			}
+			return true;
+		},
+		process: function($ctx, node, seq, result, parameter) {
+			if(parameter.processor){
+				parameter.processor($ctx, node);
+			}
+			return true;
+		},
+		cleanup: function($ctx, node, seq, result, parameter) {
+			var i, parameter, parameters = $ctx.$jst.nodes[seq].parameters;
+			for(i=parameters.length-1; i > 0; -- i){
+				if(parameters[i].directive && parameters[i].directive.name == jst_attr_item_end){
+					parameter = parameters[i]
+					if(parameter.processor){
+						parameter.processor($ctx, node);
+					}
+				}
+			}						
+		}		
+	};	
 	directives[jst_attr_html] = {
 		name: jst_attr_html,
 		compile: function($jst, node, result, nodeName, nodeValue) {
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_html], name: nodeName, value: nodeValue, processor: exec_value_function.create(nodeValue) });
+				result.parameters.push({directive: directives[jst_attr_html], name: nodeName, value: nodeValue, processor: exec_value_function.create($jst, nodeValue) });
 				node.removeAttribute(jst_attr_html); 
 				node.removeAttribute(jst_attr_text);
 			}
 			return true;
 		},
-		process: function($ctx, node, seq, parameter) {
+		process: function($ctx, node, seq, result, parameter) {
 			var value = parameter.processor? parameter.processor($ctx, node) : "";
 			if(value === undefined || value === null) {
 				value = "";
@@ -176,12 +228,12 @@
 		name: jst_attr_text,
 		compile: function($jst, node, result, nodeName, nodeValue) {
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_text], name: nodeName, value: nodeValue, processor: exec_value_function.create(nodeValue) });
+				result.parameters.push({directive: directives[jst_attr_text], name: nodeName, value: nodeValue, processor: exec_value_function.create($jst, nodeValue) });
 				node.removeAttribute(jst_attr_text);
 			}
 			return true;
 		},
-		process: function($ctx, node, seq, parameter) {
+		process: function($ctx, node, seq, result, parameter) {
 			var value = parameter.processor? parameter.processor($ctx, node) : "";
 			if(value === undefined || value === null) {
 				value = "";
@@ -198,8 +250,8 @@
 				nodeName = node.attributes[i].nodeName;
 				if(directives[nodeName] === undefined){
 					nodeValue = node.attributes[i].nodeValue;
-					if(nodeValue.match(REGEX_VARIABLE)){
-						result.parameters.push({directive: directives[jst_other_attrs], name: nodeName, value: nodeValue, processor: exec_value_function.create(nodeValue) });
+					if(nodeValue.match(REGEX_EXPRESSION)){
+						result.parameters.push({directive: directives[jst_other_attrs], name: nodeName, value: nodeValue, processor: exec_value_function.create($jst, nodeValue) });
 						node.removeAttribute(nodeName);
 						-- i;
 					}
@@ -207,9 +259,10 @@
 			}
 			return true;
 		},
-		process: function($ctx, node, seq, parameter) {
+		process: function($ctx, node, seq, result, parameter) {
 			var value = parameter.processor? parameter.processor($ctx, node) : "";
-			jst.node.attr(node, parameter.name, value)
+			var name = parameter.name
+			jst.node.attr(node, name.indexOf(jst_attr_prefix)==0? name.substr(jst_attr_prefix.length) : name, value)
 			return true;
 		},
 	};
@@ -217,17 +270,17 @@
 		name: jst_attr_bind,
 		compile: function($jst, node, result, nodeName, nodeValue) {
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_bind], name: nodeName, value: nodeValue, processor: exec_bind_function.create(nodeValue) });
+				result.parameters.push({directive: directives[jst_attr_bind], name: nodeName, value: nodeValue, processor: exec_bind_function.create($jst, nodeValue) });
 				node.removeAttribute(nodeName);	
 			}
 			return true;
 		},
-		process: function($ctx, node, seq, nodeName, nodeValue) {
-			var value = execute($ctx, node, seq, nodeName, nodeValue);
-			if(!value.fnc) {
-				value.fnc = exec_bind;
-			}
-			value.fnc($ctx, node, value.obj, value.key);
+		process: function($ctx, node, seq, result, parameter) {
+			//var value = execute($ctx, node, seq, nodeName, nodeValue);
+			//if(!value.fnc) {
+			//	value.fnc = exec_bind;
+			//}
+			//value.fnc($ctx, node, value.obj, value.key);
 			return true;
 		},
 	};
@@ -235,12 +288,12 @@
 		name: jst_attr_call,
 		compile: function($jst, node, result, nodeName, nodeValue) {
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_call], name: nodeName, value: nodeValue, processor: exec_call_function.create(nodeValue) });
+				result.parameters.push({directive: directives[jst_attr_call], name: nodeName, value: nodeValue, processor: exec_call_function.create($jst, nodeValue) });
 				node.removeAttribute(nodeName);	
 			}
 			return true;
 		},
-		process: function($ctx, node, seq, parameter) {
+		process: function($ctx, node, seq, result, parameter) {
 			if(parameter.processor){
 				parameter.processor($ctx, node);
 			}
@@ -251,16 +304,31 @@
 		name: jst_attr_recursive,
 		compile: function($jst, node, result, nodeName, nodeValue) {
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_recursive], name: nodeName, value: nodeValue, processor: exec_value_function.create(nodeValue) });
+				result.parameters.push({directive: directives[jst_attr_recursive], name: nodeName, value: nodeValue, processor: exec_value_function.create($jst, nodeValue) });
 				node.removeAttribute(nodeName);	
 			}
 			return true;
 		},
-		process: function($ctx, node, seq, parameter) {
+		process: function($ctx, node, seq, result, parameter) {
 			var value = parameter.processor? parameter.processor($ctx, node) : true;
 			if(!value) {
-				return false;
+				result.recursive = false;
 			}
+			return true;
+		}
+	};
+	directives[jst_attr_item_end] = {
+		name: jst_attr_item_end,
+		compile: function($jst, node, result, nodeName, nodeValue) {
+			if(node.getAttribute(jst_attr_repeat) == null){
+				node.removeAttribute(nodeName);	
+				nodeValue = null;
+			}
+			if(nodeValue != null){
+				result.parameters.push({directive: directives[jst_attr_item_end], name: nodeName, value: nodeValue, processor: exec_call_function.create($jst, nodeValue) });
+				node.removeAttribute(nodeName);	
+			}
+			node.removeAttribute(jst_attr_repeat);
 			return true;
 		}
 	};
@@ -268,12 +336,9 @@
 		name: jst_attr_end,
 		compile: function($jst, node, result, nodeName, nodeValue) {
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_end], name: nodeName, value: nodeValue, processor: exec_call_function.create(nodeValue) });
+				result.parameters.push({directive: directives[jst_attr_end], name: nodeName, value: nodeValue, processor: exec_call_function.create($jst, nodeValue) });
 				node.removeAttribute(nodeName);	
 			}
-			return true;
-		},
-		process: function($ctx, node, seq, nodeName, nodeValue) {
 			return true;
 		}
 	};
@@ -284,12 +349,14 @@
 		jst_attr_if,
 		jst_attr_repeat,
 		jst_attr_filter,
+		jst_attr_item_begin,
 		jst_attr_html,
 		jst_attr_text,
 		jst_other_attrs,
 		jst_attr_bind,
 		jst_attr_call,
 		jst_attr_recursive,
+		jst_attr_item_end,
 		jst_attr_end
 	];
 	
@@ -333,10 +400,10 @@
 			return undefined;
 		}
 	}
-	exec_call_function.create = function(expr) {
-		REGEX_VARIABLE.lastIndex = 0;
-		var expr = REGEX_VARIABLE.exec(expr);
-		if(expr.length>0){
+	exec_call_function.create = function($jst, expr) {
+		REGEX_EXPRESSION.lastIndex = 0;
+		var expr = REGEX_EXPRESSION.exec(expr);
+		if(expr && expr.length>0){
 			return create_vm_function(exec_call_function, { "TODO": expr[1] });
 		} else {
 			return null;
@@ -358,29 +425,22 @@
 		}
 	}
 	
-	exec_value_function.create = function(expr) {
+	exec_value_function.create = function($jst, expr) {
 		var parts = [];
 		var s, p = 0;
-		REGEX_VARIABLE.lastIndex = 0;
+		REGEX_EXPRESSION.lastIndex = 0;
 
-		while ((s = REGEX_VARIABLE.exec(expr))) {
+		while ((s = REGEX_EXPRESSION.exec(expr))) {
 			if (s.index > 0) {
 				parts.push(expr.substring(p, s.index));
 			}
-			parts.push(s[0])
+			parts.push(create_vm_function(exec_value_function, { "TODO": s[1] }))
 			p = s.index + s[0].length;
 		}
 		if(p < expr.length){
 			parts.push(expr.substring(p));
 		}
 
-		for(p = 0; p < parts.length; ++ p){
-			REGEX_VARIABLE.lastIndex = 0;
-			if((s = REGEX_VARIABLE.exec(parts[p]))){
-				parts[p] = create_vm_function(exec_value_function, { "TODO": s[1] });
-			}
-		}
-		
 		return function($ctx, $ctl){
 			if(parts.length == 1 && typeof(parts[0]) == "function"){
 				return parts[0]($ctx, $ctl);
@@ -394,73 +454,50 @@
 	}
 
 	/* evaluation repeat function */
-	function exec_repeat_function($ctx, $ctl) {
+	function exec_repeat_function($ctx, $ctl, $start_idx) {
 		try {
 			var $jst = $ctx.$jst,
 				$target = $ctx.$target,
 				$data = $ctx.$data;
-			var count = 0,
-				node = $ctl,
-				parent = $ctl.parentNode,
-				seq = $ctl.getAttribute($jst.id),
-				start, parameters, result;
-			
-			parameters = $jst.nodes[seq].parameters;
-			for(var i = 0; i < parameters.length; ++ i){
-				parameter = parameters[i];
-				if(parameter.name == jst.attrs.repeat){
-					start = i + 1;
-					break;
-				}
-			}
+
+			var $seq = $ctl.getAttribute($jst.id) - 0, $count = 0, $node = $ctl, $result;
+
 			with($data) {
-				for(;;) 
-				{
-					if(!node) {
-						node = parent.appendChild(jst.node.create($jst.nodes[seq].dom));
+				for(;;) {
+					if(!$node) {
+						$node = $ctl.parentNode.appendChild(jst.node.create($jst.nodes[$seq].dom));
 					}
-					if(node.getAttribute($jst.id) != seq) {
-						node = parent.insertBefore(jst.node.create($jst.nodes[seq].dom), node);
+					if($node.nodeType != 1 || $node.getAttribute($jst.id) != $seq) {
+						$node = $ctl.parentNode.insertBefore(jst.node.create($jst.nodes[$seq].dom), $node);
 					}
-					result = jst.process_attrbutes($ctx, node, seq, start);
-					if(result.node.nodeType == 8) {
-						node = jst.node.replace(result.node, jst.node.create($jst.nodes[seq].dom));
+					$result = jst.process($ctx, $node, $start_idx);
+					if($result.nodeType == 8) {
+						$node = jst.node.replace($result, jst.node.create($jst.nodes[$seq].dom));
 					} else {
-						++count;
-						if(result.recursive === true) {
-							process($ctx, result.node);
-						}
-						i = result.cleanup_start_idx;
-						n = result.cleanup_end_idx;
-						node = result.node.nextSibling;
+						++$count;
+						$node = $result.nextSibling;
 					} 
-					for(; i >= n; -- i){
-						parameter = parameters[i];
-						directive = parameter.directive;
-						if(directive && directive.cleanup){
-							directive.cleanup($ctx, node, seq, parameter);
-						}
-					}
 				}
-				if(count == 0) {
-					node = jst.node.comment($jst.id, node).nextSibling;
+				if($count == 0) {
+					$result = jst.node.comment($jst.id, $node);
+					$node = $result.nextSibling;
 				}
-				var next;
-				while(node && node.nodeType == 1 && node.getAttribute($jst.id) == seq) {
-					next = node.nextSibling;
-					node.parentNode.removeChild(node);
-					node = next;
+				while($node && $node.nodeType == 1 && $node.getAttribute($jst.id) == $seq) {
+					var $nextSibling = $node.nextSibling;
+					$node.parentNode.removeChild($node);
+					$node = $nextSibling;
 				}
 			}
 		} catch(err) {
 			console.log(err);
 		}
-		return node.previousSibling;
+		return $result;
 	}
-	exec_repeat_function.create = function(expr) {
-		REGEX_VARIABLE.lastIndex = 0;
-		var expr = REGEX_VARIABLE.exec(expr);
-		if(expr.length>0){
+	
+	exec_repeat_function.create = function($jst, expr) {
+		REGEX_EXPRESSION.lastIndex = 0;
+		var expr = REGEX_EXPRESSION.exec(expr);
+		if(expr && expr.length>0){
 			return create_vm_function(exec_repeat_function, { ";;": expr[1] });
 		} else {
 			return null;
@@ -482,10 +519,10 @@
 			return undefined;
 		}
 	}
-	exec_bind_function.create = function(expr) {
-		REGEX_VARIABLE.lastIndex = 0;
-		var expr = REGEX_VARIABLE.exec(expr);
-		if(expr.length>0){
+	exec_bind_function.create = function($jst, expr) {
+		REGEX_EXPRESSION.lastIndex = 0;
+		var expr = REGEX_EXPRESSION.exec(expr);
+		if(expr && expr.length>0){
 			expr =  expr[1];
 		} else {
 			return null;
@@ -518,9 +555,35 @@
 		}
 		return parameter($ctx, node);
 	}
-
-	var dummyElement = document.createElement("div");
+	
 	jst.node = {
+		dataKey: "data-jst-data",
+		dataCache: {},
+		cleanData: function(){
+			var key, node = window.event.target;
+			if(node.nodeType && node.nodeType == 1 && (key = node.getAttribute(jst.node.dataKey))){
+				delete jst.node.dataCache[key];
+			}
+		},
+		data: function(node, name, value){
+			if(node.nodeType == 1){
+				var key = node.getAttribute(jst.node.dataKey);
+				if(!key && value !== undefined){
+					key = uuid();
+					node.setAttribute(jst.node.dataKey, key);
+				}
+				if(key){
+					var cache = jst.node.dataCache[key] || {};
+					if(value!== undefined){
+						cache[name] = value;
+						jst.node.dataCache[key] = cache;
+					}else{
+						return cache[name];
+					}
+				}
+			}
+		},
+		div : document.createElement("div"),
 		comment: function(id, node) {
 			var seq = node.getAttribute(id);
 			if(seq) {
@@ -543,18 +606,13 @@
 			}
 		},
 		create: function(node) {
-			dummyElement.innerHTML = node.outerHTML;
-			return dummyElement.firstChild;
+			jst.node.div.innerHTML = node.outerHTML;
+			return jst.node.div.firstChild;
 		},
 		replace: function(node, repl) {
 			node.parentNode.insertBefore(repl, node);
 			node.parentNode.removeChild(node);
 			return repl;
-		},
-		remove: function(node) {
-			node = node.previousSibling;
-			node.parentNode.removeChild(node.nextSibling);
-			return node.nextSibling;
 		},
 		text: function(node, preserveWhiteSpace) {
 			var result, parent = node.parentNode,
@@ -570,63 +628,21 @@
 			return preserveWhiteSpace ? result : result.replace(/(^\s*)|(\s*$)/g, "");
 		}
 	}
-/*
-	var compile_attribute = function($jst, node, seq, attrs) {
-		var nodeValue, pre_process_attrs = [],
-			post_process_attrs = [], parsers = {};
-			
-		jst.pre_process_attributes.forEach(function(nodeName, idx) {
-			directive = directives[nodeName];
-			if(directive.name != jst_other_attrs) {
-				nodeValue = attrs[nodeName];
-				if(nodeValue != undefined) {
-					if(directive.parser){
-						parsers[nodeName+"="+nodeValue] = directive.parser.create(nodeValue);
-					}
-					pre_process_attrs.push({ name: nodeName, value: nodeValue, processor: directive.process });
-				}
-			} else {
-				for(nodeName in attrs) {
-					if(nodeName.indexOf(jst_attr_prefix) != 0) {
-						nodeValue = attrs[nodeName];
-						if(directive.parser){
-							parsers[nodeName+"="+nodeValue] = directive.parser.create(nodeValue); 
-						}
-						pre_process_attrs.push({ name: nodeName, value: nodeValue, processor: directive.process });
-					}
-				}
-			}
-		});
+	document.addEventListener("DOMNodeRemoved", jst.node.cleanData);
 
-		jst.post_process_attributes.forEach(function(nodeName, idx) {
-			directive = directives[nodeName];
-			nodeValue = attrs[nodeName];
-			if(nodeValue != undefined) {
-				if(directive.parser){
-					parsers[nodeName+"="+nodeValue] = directive.parser.create(nodeValue);
-				}
-				post_process_attrs.push({ name: nodeName, value: nodeValue, processor: directive.process });
-			}
-		});
-
-		return { parsers: parsers, pre_process_attrs: pre_process_attrs, post_process_attrs: post_process_attrs };
-	}
-*/
 	var convert_text_node = function(node, preserveWhiteSpace){
-		var dom = node.parentNode, elm = dummyElement, txt = jst.node.text(node, preserveWhiteSpace), result;
-		if(txt.length > 1) {
-			txt = txt.replace(/\{\{.*?\}\}/g, function(c) {
-				return "<span " + jst_attr_text + "=\"" + c.replace(/'/g, "&apos;").replace(/"/g, "&quot;").replace(/>/g, "&gt;").replace(/</g, "&lt;") + "\"></span>";
+		var dom = node.parentNode, elm = jst.node.div, txt = jst.node.text(node, preserveWhiteSpace), result = node.nextSibling;
+		if(txt.length > 0) {
+			txt = txt.replace(REGEX_EXPRESSION, function(c) {
+				return "<!--" + jst_attr_text + "=" + c.replace(/>/g, "&gt;").replace(/</g, "&lt;") + "--><!--"+jst_attr_text + ":end-->";
 			});
 			elm.innerHTML = txt;
-			result = elm.childNodes[0];
+			//result = elm.childNodes[0];
 			while(elm.childNodes.length > 0) {
-				dom.insertBefore(elm.childNodes[0], node);
+				(result == null)? dom.appendChild(elm.childNodes[0]) : dom.insertBefore(elm.childNodes[0], result);
 			}
-		} else {
-			result = node.nextSibling;
 		}
-		node.parentNode.removeChild(node);
+		dom.removeChild(node);
 		return result;
 	}
 	
@@ -691,74 +707,91 @@
 		return;
 	}
 	
-	var process_attrbutes = jst.process_attrbutes = function($ctx, node, seq, start_idx) {
-		var orgnode = node, result,	directive, parameters, parameter, status, i;
-
-		parameters = $ctx.$jst.nodes[seq].parameters;
-		result = {recursive : true, node : node, cleanup_start_idx: parameters.length - 1, cleanup_end_idx: start_idx}
-		for(i = start_idx; i < parameters.length; ++i) {
-			parameter = parameters[i];
+	var process_directive = jst.process_directive = function($ctx, node, seq, fname, start_idx, end_idx){
+		var parameter, directive,
+		    parameters = $ctx.$jst.nodes[seq].parameters,
+		    result = {recursive : true, node : node},
+		    direction = start_idx <= end_idx? 1 : -1;
+		while(true){
+			parameter = parameters[start_idx];
 			directive = parameter.directive;
-			if(directive.process){
-				status = directive.process($ctx, node, seq, parameter);    
-				if(status !== true) {
-					result.cleanup_start_idx = i;
-					if(status === false){
-						result.recursive = status; 
-					}else{
-						result.recursive = false;
-						result.node = status;  //repeat
-					}
-					break;
-				}
+			if(directive[fname] && !directive[fname]($ctx, node, seq, result, parameter)){    
+				break;
 			}
+			if(start_idx == end_idx){
+				break;
+			}
+			start_idx += direction;
+		}
+		result.end_idx = start_idx;
+		return result;
+	}
+	
+	var process_textnode = function($ctx, node){
+		var expr = node.nodeValue.substring(3 + jst_attr_text.length, node.nodeValue.length - 2),
+		    result = node.nextSibling, data, $jst = $ctx.$jst;
+		if(result && result.nodeType == 3){
+			result = result.nextSibling;
+		}
+		if(result && result.nodeType == 8 && result.data == jst_attr_text+":end"){
+			if(!$jst.expr){
+				$jst.expr = {}
+			}
+			data = "expr_" + expr;
+			if(!$jst.expr[data]){
+				$jst.expr[data] = create_vm_function(exec_value_function, { "TODO": expr });		
+			}
+			data = $jst.expr[data]($ctx, node);
+			if(data == undefined || data == null){
+				data = "";
+			}
+			node = document.createTextNode(data);
+			if(result.previousSibling.nodeType == 8){
+				result.parentNode.insertBefore(node, result);
+			}else{
+				result.previousSibling.data = node.data;
+			}
+		}else{
+			result = node;
 		}
 		return result;
 	}
-
-	var process = jst.process = function($ctx, $ctl) {
-		var node = $ctl.childNodes[0], result, seq, expr, i, directive, parameter, n;
-		while(node) {
-			if(node.nodeType == 8) {
-				expr = node.nodeValue;
-				if(expr.indexOf($ctx.$jst.id + "=") == 0) {
-					seq = expr.substr(1 + $ctx.$jst.id.length);
-					node = jst.node.replace(node, jst.node.create($ctx.$jst.nodes[seq].dom));
+	
+	/* return this node or replaced node or last of this node */
+	var process = jst.process = function($ctx, $ctl, start_idx) {
+		var node = $ctl, result, seq, end_idx;
+		if(node.nodeType == 8) {
+			seq = node.nodeValue;
+			if(seq.indexOf($ctx.$jst.id + "=") == 0) {
+				seq = seq.substr(1 + $ctx.$jst.id.length);
+				node = jst.node.replace(node, jst.node.create($ctx.$jst.nodes[seq].dom));
+			}else if(seq.indexOf(jst_attr_text+"=") == 0) {
+				return process_textnode($ctx, node);
+			}
+		}
+		if(node.nodeType == 1) {
+			seq = node.getAttribute($ctx.$jst.id);
+			if(seq){
+				end_idx = $ctx.$jst.nodes[seq].parameters.length - 1;
+				if(start_idx <= end_idx){
+					result = process_directive($ctx, node, seq, "process", start_idx, end_idx);
+				}else{
+					result = {recursive: true, node: node, end_idx: end_idx};
+				}
+			}else{
+				result = {recursive: true, node: node, end_idx: -1};
+			}
+			if(result.recursive === true) {
+				node = result.node.childNodes[0];
+				while(node) {
+					node = process($ctx, node, 0);
+					node = node? node.nextSibling : node;
 				}
 			}
-			if(node.nodeType == 1) {
-				seq = node.getAttribute($ctx.$jst.id);
-				if(seq){
-					parameters = $ctx.$jst.nodes[seq].parameters;
-					n = $ctx.$jst.nodes[seq].parameters.length;
-					for(i=0; i < n; ++ i){
-						parameter = parameters[i];
-						directive = parameter.directive;
-						if(directive && directive.startup && !directive.startup($ctx, node, seq, parameter)){
-							break;
-						}
-					}
-					if(i >= n){
-						result = process_attrbutes($ctx, node, seq, 0);
-						if(result.recursive === true) {
-							process($ctx, result.node);
-						}
-						i = result.cleanup_start_idx;
-						n = result.cleanup_end_idx;
-						node = result.node;
-					} else {
-						n = 0;
-					}
-					for(; i >= n; -- i){
-						parameter = parameters[i];
-						directive = parameter.directive;
-						if(directive && directive.cleanup){
-							directive.cleanup($ctx, node, seq, parameter);
-						}
-					}
-				}
+			if(seq && result.end_idx >= start_idx){
+				process_directive($ctx, result.node, seq, "cleanup", result.end_idx, start_idx);
 			}
-			node = node? node.nextSibling : node;
+			return result.node;
 		}
 		return $ctl;
 	}
@@ -780,13 +813,13 @@
 		var ctx = {
 			$jst: this,
 			$target: target,
-			$data: data
+			$data: data,
+			$vars: []
 		}
 
-		target.jst_ctx = ctx
-		target.jst_dirty = false;
+		jst.node.data(target, "jst-ctx", ctx);
 
-		process(ctx, target);
+		process(ctx, target, 0);
 	}
 
 

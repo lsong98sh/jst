@@ -33,25 +33,39 @@
 				</div>
 			</div>
 			<div>aaa</div>
+			
+						aa:[{{show}}]
+			<img jst-src="{{'test.png'}}"/>
+			<div class="test"
+				jst-begin="{{console.log('begin')}}" 
+				jst-if="{{true}}" 
+				jst-repeat="{{ii=0; ii < count; ++ ii}}"
+				jst-filter="{{ii %2 == 0}}"
+				jst-item-begin="{{console.log('item-begin')}}"
+				jst-style="background:{{show? 'red' : 'yellow'}}"
+				others="background:{{show? 'red' : 'yellow'}};hi"
+				jst-call="{{console.log('call')}}"
+				jst-recursive="{{true}}"
+				jst-item-end="{{console.log('item-end')}}"
+				jst-end="{{console.log('end')}}">
+				
+			</div>	
+			
 		</div>
 		<button onclick="test1()">start render</button>
 		<button onclick="test2()">render1 10000 nodes 1</button>
 		<button onclick="test3()">render2 10000 nodes 2</button>
 		jst-text="--[{{text}}]--" 
 		<div id="test" >
+			aa:[{{show}}]
+			<img jst-src="{{'test.png'}}"/>
+			<input type="text" jst-control="{{'jst.ui.input'}}" jst-bind-value-object="{{$data}}" jst-bind-value-key="{{'name'}}" jst-bind-prop="{{x}}" />
 			<div class="test"
-				jst-begin="{{console.log('begin')}}" 
-				jst-if="{{true}}" 
-				jst-repeat="{{ii=0; ii < 10; ++ ii}}"
-				jst-filter="{{ii %2 == 0}}"
-				style="background:{{show? 'red' : 'yellow'}}"
-				others="background:{{show? 'red' : 'yellow'}};hi"
-				jst-call="{{console.log('call')}}"
-				jst-recursive="{{false}}"
-				jst-end="{{console.log('end')}}">
-				aaa
+				jst-repeat="{{i=0; i < count; ++ i}}">
+				aa:[{{show}}]
+			<img jst-src="{{'test.png'}}"/>
 			</div>			
-			{{show}}
+			
 		</div>
 					
 		<div id="output">
@@ -64,6 +78,9 @@
 
 	var nnn = new jst("test", document.getElementById('test'));
 	
+	var node = document.getElementById('test');
+	//jst.node.data(node, "aaa", "ooo");
+	//node.parentElement.innerHTML="";
 	function test1(){
 		nnn.render(document.getElementById('output'), {
 			text: "<b>line with \ttab & b tag  2   3    4     5</b>",
