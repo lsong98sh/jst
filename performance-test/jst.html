@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="../jst.js"></script>
+		<style>
+			.tag{
+				display: inline-block;
+				padding: 5px;
+				border: 1px solid #c0c0c0;
+				width: 100px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="app">
+			<button onclick="test1()">test#1</button>
+			<button onclick="test2()">test#2</button>
+			<div>
+				<div class="tag" jst-repeat="{{x=0;x < names.length; ++ x}}"><span jst-text="{{names[x].name}}"></span></div>
+			</div>
+		</div>
+	<script>
+		var names = [];
+		var app = document.getElementById("app");
+		var jstObj = new jst("myApp", app, true);
+		for(var i=0; i < 40000; ++ i){
+			names[i] = {name: "name@"+i};
+		} 
+		jstObj.render(app, {
+				names : []
+		}, true);
+		var test1 = function () {
+      		jstObj.render(app, {
+				names : names
+			}, false);
+    	}
+   		var test2 = function () {
+      		names[0].name="hello";
+		    names[19999].name="world";
+		    jstObj.render(app, {
+				names : names
+			}, false);
+    	} 
+	</script>
+
+	</body>
+</html>

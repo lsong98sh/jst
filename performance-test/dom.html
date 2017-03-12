@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title></title>
+		<style>
+			.tag{
+				display: inline-block;
+				padding: 5px;
+				border: 1px solid #c0c0c0;
+				width: 100px;
+			}
+		</style>
+	<script>
+		var total = 40000;
+		function clear1(){
+			document.getElementById("test").innerHTML="";
+		}
+		function fill1(){
+			var e, d = document.createDocumentFragment();
+			var t = new Date();
+			for(var i=0;  i < total; ++ i){
+				e = document.createElement("div");
+				e.setAttribute("class", "tag");
+				e.innerText="aaa"+i;
+				d.appendChild(e);
+			}
+			document.getElementById("test").appendChild(d);
+			console.log(new Date() - t);
+		}
+		
+		function fill2(){
+			var d = document.getElementById("test");
+			var e, t = new Date();
+			for(var i=0;  i < total; ++ i){
+				e = document.createElement("div");
+				e.setAttribute("class", "tag");
+				e.innerText="aaa"+i;
+				d.appendChild(e);
+			}
+			console.log(new Date() - t);
+		}
+		
+		var fake = {
+			createElement: function(n){
+				var o = {
+					name: n,
+					attrs: {},
+					innerText: '',
+					setAttribute: function(n, v){
+						o.attrs[n] = v;
+					},
+					getHtml: function(){
+						var s = "<" + o.name;
+						for(key in o.attrs){
+							s += " " + key+"='"+o.attrs[key]+"'";
+						}
+						return s + ">" + o.innerText + "</" + o.name + ">";
+					}
+				};
+				return o;
+			},
+			childs:[],
+			appendChild: function(e){
+				fake.childs.push(e.getHtml());
+			},
+			
+			getDocument: function(){
+				var t = document.createElement("div");
+				t.innerHTML = fake.childs.join("");
+				return t;
+			}
+		}
+		
+		function fill3(){
+			fake.childs = [];
+			var d = document.getElementById("test");
+			var e, t = new Date();
+			for(var i=0;  i < total; ++ i){
+				e = fake.createElement("div");
+				e.setAttribute("class", "tag");
+				e.innerText="aaa"+i;
+				fake.appendChild(e);
+			}
+			var div = fake.getDocument();
+			while((t = div.firstChild) != null){
+				d.appendChild(t);
+			}
+			//d.appendChild(div);
+			console.log(new Date() - t);
+		}
+		
+		function fill4(){
+			var d = document.getElementById("test");
+			var e="", t = new Date();
+			for(var i=0;  i < total; ++ i){
+				e = e + "<div class='tag'>aaa" + i + "</div>";
+			}
+			d.innerHTML = e;
+			console.log(new Date() - t);
+		}
+	</script>		
+	</head>
+	<body>
+		<button onclick="clear1()">clear</button>
+		<button onclick="fill1()">fill1-documentfragment</button>
+		<button onclick="fill2()">fill2-direct append</button>
+		<button onclick="fill3()">fill3-fake dom</button>
+		<button onclick="fill4()">fill4-innerHTML</button>
+		<div id="test"></div>
+	</body>
+
+</html>

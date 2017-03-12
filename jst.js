@@ -14,49 +14,26 @@
 		init(this, name, dom, preserveWhiteSpace);
 	}
 
-	jst.attrs = {};
-	
-	var jst_attr_prefix      = jst.attrs.prefix      = window.jst_jst_attr_prefix || "jst-";
-	
-	var jst_attr_skip        = jst.attrs.skip        = jst_attr_prefix + "skip";
-	var jst_attr_begin       = jst.attrs.begin       = jst_attr_prefix + "begin";
-	var jst_attr_if          = jst.attrs.if          = jst_attr_prefix + "if";
-	var jst_attr_repeat      = jst.attrs.repeat      = jst_attr_prefix + "repeat";
-	var jst_attr_filter      = jst.attrs.filter      = jst_attr_prefix + "filter";
-	var jst_attr_item_begin  = jst.attrs.item_begin   = jst_attr_prefix + "item-begin";
-	var jst_attr_html        = jst.attrs.html        = jst_attr_prefix + "html";
-	var jst_attr_text        = jst.attrs.text        = jst_attr_prefix + "text";
-	var jst_attr_bind        = jst.attrs.bind        = jst_attr_prefix + "bind";
-	var jst_attr_call        = jst.attrs.call        = jst_attr_prefix + "call";
-	var jst_attr_recursive   = jst.attrs.recursive   = jst_attr_prefix + "recursive";
-	var jst_attr_item_end    = jst.attrs.item_end    = jst_attr_prefix + "item-end";
-	var jst_attr_end         = jst.attrs.end         = jst_attr_prefix + "end";
-	
-	var jst_other_attrs    = jst.jst_other_attrs = "*";
-	
-	var directives = jst.directives = {};
-	/* compile/process/cleanup */
-	/*
-	 * compile: 
-	 *     true: continue
-	 *     false: break 
-	 *     function: if(nodeValue) create a processor & continue
-	 * process: call on each directive
-	 * cleanup: call after processing the attributes
-	 * 
-	 */
-	directives[jst_attr_skip] = {
-		name: jst_attr_skip,
-		compile: function($jst, node, result, nodeName, nodeValue) {
+	var jst_attr_prefix = window.jst_jst_attr_prefix || "jst-";
+
+	var jst_attr_text = jst_attr_prefix + "text";
+
+	var directives = [];
+
+	directives.push({
+		name: jst_attr_prefix + "skip",
+		compile: function($jst, node, result) {
+			var nodeValue = node.getAttribute(this.name);
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_skip], name: nodeName, value: "true" });
-				/* delete other directives & return false */
-				var i, nodeName;
+				result.parameters.push({directive: this, name: this.name});
+				var i, attrs=[], nodeName;
 				for(i = 0; i < node.attributes.length; ++i){
-					nodeName = node.attributes[i].nodeName; 
-					if(directives[nodeName] != undefined && directives[nodeName].name != jst_other_attrs){
+					attrs.push(node.attributes[i].nodeName);
+				}
+				for(i = 0; i < attrs.length; ++ i){
+					nodeName = attrs[i];
+					if(directives.find(function(e){return e.name == nodeName}) !== undefined){
 						node.removeAttribute(nodeName);
-						--i;
 					}
 				}
 				return false;
@@ -67,51 +44,56 @@
 			result.recursive = false;
 			return false;
 		}
-	};
-	directives[jst_attr_begin] = {
-		name: jst_attr_begin,
-		compile: function($jst, node, result, nodeName, nodeValue) {
-			if(nodeValue != null){
-				node.removeAttribute(jst_attr_begin);
-				result.parameters.push({directive: directives[jst_attr_begin], name: nodeName, value: nodeValue, processor: exec_call_function.create($jst, nodeValue) });
+	});
+	directives.push({
+		name: jst_attr_prefix + "begin",
+		compile: function($jst, node, result) {
+			var nodeValueBegin = node.getAttribute(this.name), nodeValueEnd = node.getAttribute(jst_attr_prefix + "end"), parameter;
+			if(nodeValueBegin != null || nodeValueEnd != null){
+				node.removeAttribute(this.name);
+				node.removeAttribute(jst_attr_prefix + "end");
+				parameter = {directive: this, name: this.name};
+				if(nodeValueBegin){
+					parameter.processorBegin = exec_call_function.create($jst, nodeValueBegin);
+				}
+				if(nodeValueEnd){
+					parameter.processorEnd = exec_call_function.create($jst, nodeValueEnd);
+				}
+				result.parameters.push(parameter);
 			}
 			return true;
 		},
 		process: function($ctx, node, seq, result, parameter) {
-			if(parameter.processor){
-				parameter.processor($ctx, node);
+			if(parameter.processorBegin){
+				parameter.processorBegin($ctx, node);
 			}
 			return true;
 		},
 		cleanup: function($ctx, node, seq, result, parameter) {
-			var i, parameter, parameters = $ctx.$jst.nodes[seq].parameters;
-			for(i=parameters.length-1; i > 0; -- i){
-				if(parameters[i].directive && parameters[i].directive.name == jst_attr_end){
-					parameter = parameters[i]
-					if(parameter.processor){
-						parameter.processor($ctx, node);
-					}
-				}
-			}						
+			if(parameter.processorEnd){
+				parameter.processorEnd($ctx, node);
+			}
+			return true;
 		}
-	};
-	directives[jst_attr_if] = {
-		name: jst_attr_if,
-		compile: function($jst, node, result, nodeName, nodeValue) {
+	});
+	directives.push({
+		name: jst_attr_prefix + "if",
+		compile: function($jst, node, result) {
+			var nodeValue = node.getAttribute(this.name);
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_if], name: nodeName, value: nodeValue, processor: exec_value_function.create($jst, nodeValue) });
-				node.removeAttribute(nodeName);	
+				result.parameters.push({directive: this, name: this.name, processor: exec_value_function.create($jst, nodeValue) });
+				node.removeAttribute(this.name);	
 			}
 			return true;
 		},
 		process: function($ctx, node, seq, result, parameter) {
-			var value = parameter.processor? parameter.processor($ctx, node) : false;
+			var rtv = true, value = parameter.processor? parameter.processor($ctx, node) : false;
 			if(value.toString().indexOf("@") == 0){
-				var comment = "<!--" + jst_attr_if + "@" + $ctx.$jst.id + "=" + seq + "-->";
+				var comment = "<!--@" + $ctx.$jst.id + "=" + seq + "-->";
 				if(value=="@" || value.toLowerCase() == "@false" || value == "@0") {
 					node.innerHTML = comment;
 					result.recursive = false;
-					return false;
+					rtv = false;
 				} else {
 					if(node.innerHTML == comment) {
 						node.innerHTML = $ctx.$jst.nodes[seq].dom.innerHTML;
@@ -121,29 +103,35 @@
 				if(!value) {
 					result.node = jst.node.comment($ctx.$jst.id, node);
 					result.recursive = false;
-					return false;
+					rtv = false;
 				}
 			}
-			return true;
+			node = result.node.nextSibling;
+			while(node != null && node.getAttribute){
+				if(node.getAttribute($ctx.$jst.id) == seq){
+					node = node.previousSibling;
+					node.parentNode.removeChild(node.nextSibling);
+				}else{
+					break;
+				}
+				node = node.nextSibling;
+			}
+			return rtv;
 		}
-	};
-	directives[jst_attr_repeat] = {
-		name: jst_attr_repeat,
-		compile: function($jst, node, result, nodeName, nodeValue) {
+	});
+	directives.push({
+		name: jst_attr_prefix + "repeat",
+		compile: function($jst, node, result) {
+			var nodeValue = node.getAttribute(this.name);
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_repeat], name: nodeName, value: nodeValue, processor: exec_repeat_function.create($jst, nodeValue) });
+				node.removeAttribute(this.name);
+				result.parameters.push({directive: this, name: this.name, processor: exec_repeat_function.create($jst, nodeValue) });
 			}
 			return true;
 		},
 		process: function($ctx, node, seq, result, parameter) {
 			if(parameter && parameter.processor){
-				var i, start_idx = 0, parameters = $ctx.$jst.nodes[seq].parameters;
-				for(i = 0; i < parameters.length; ++ i){
-					if(parameters[i].name == jst.attrs.repeat){
-						start_idx = i + 1;
-						break;
-					}
-				}
+				var start_idx = $ctx.$jst.nodes[seq].parameters.findIndex(function(e){return e.name == jst_attr_prefix + "repeat"}) + 1;
 				result.node = parameter.processor($ctx, node, start_idx);
 				result.recursive = false;
 				return false;
@@ -151,18 +139,15 @@
 				return true;
 			}
 		}
-	};
-	directives[jst_attr_filter] = {
-		name: jst_attr_filter,
-		compile: function($jst, node, result, nodeName, nodeValue) {
-			if(node.getAttribute(jst_attr_repeat) == null){
-				node.removeAttribute(nodeName);	
-				nodeValue = null;
+	});
+	directives.push({
+		name: jst_attr_prefix + "filter",
+		compile: function($jst, node, result) {
+			var nodeValue = node.getAttribute(this.name);
+			if(result.parameters.find(function(e){return e.name == jst_attr_prefix + "repeat"}) && nodeValue != null){
+				result.parameters.push({directive: this, name: this.name, processor: exec_value_function.create($jst, nodeValue) });
 			}
-			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_filter], name: nodeName, value: nodeValue, processor: exec_value_function.create($jst, nodeValue) });
-			}
-			node.removeAttribute(jst_attr_filter);
+			node.removeAttribute(this.name);
 			return true;
 		},
 		process: function($ctx, node, seq, result, parameter) {
@@ -173,45 +158,49 @@
 			}
 			return true;
 		}
-	};
-	directives[jst_attr_item_begin] = {
-		name: jst_attr_begin,
-		compile: function($jst, node, result, nodeName, nodeValue) {
-			if(node.getAttribute(jst_attr_repeat) == null){
-				node.removeAttribute(nodeName);	
-				nodeValue = null;
+	});
+	directives.push({
+		name: jst_attr_prefix + "item-begin",
+		compile: function($jst, node, result) {
+			var i, nodeValueBegin = node.getAttribute(this.name), nodeValueEnd = node.getAttribute(jst_attr_prefix + "item-end"), parameter;
+			if(result.parameters.find(function(e){return e.name == jst_attr_prefix + "repeat"})){
+				if(nodeValueBegin != null || nodeValueEnd != null){
+					parameter = {directive: this, name: this.name};
+					if(nodeValueBegin){
+						parameter.processorBegin = exec_call_function.create($jst, nodeValueBegin);
+					}
+					if(nodeValueEnd){
+						parameter.processorEnd = exec_call_function.create($jst, nodeValueEnd);
+					}
+					result.parameters.push(parameter);
+				}
 			}
-			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_item_begin], name: nodeName, value: nodeValue, processor: exec_call_function.create($jst, nodeValue) });
-				node.removeAttribute(nodeName);	
-			}
+			node.removeAttribute(this.name);
+			node.removeAttribute(jst_attr_prefix + "item-end");
+			
 			return true;
 		},
 		process: function($ctx, node, seq, result, parameter) {
-			if(parameter.processor){
-				parameter.processor($ctx, node);
+			if(parameter.processorBegin){
+				parameter.processorBegin($ctx, node);
 			}
 			return true;
 		},
 		cleanup: function($ctx, node, seq, result, parameter) {
-			var i, parameter, parameters = $ctx.$jst.nodes[seq].parameters;
-			for(i=parameters.length-1; i > 0; -- i){
-				if(parameters[i].directive && parameters[i].directive.name == jst_attr_item_end){
-					parameter = parameters[i]
-					if(parameter.processor){
-						parameter.processor($ctx, node);
-					}
-				}
-			}						
+			if(parameter.processorEnd){
+				parameter.processorEnd($ctx, node);
+			}
+			return true;					
 		}		
-	};	
-	directives[jst_attr_html] = {
-		name: jst_attr_html,
-		compile: function($jst, node, result, nodeName, nodeValue) {
+	});	
+	directives.push({
+		name: jst_attr_prefix + "html",
+		compile: function($jst, node, result) {
+			var nodeValue= node.getAttribute(this.name);
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_html], name: nodeName, value: nodeValue, processor: exec_value_function.create($jst, nodeValue) });
-				node.removeAttribute(jst_attr_html); 
-				node.removeAttribute(jst_attr_text);
+				result.parameters.push({directive: this, name: this.name, processor: exec_value_function.create($jst, nodeValue) });
+				node.removeAttribute(this.name); 
+				node.removeAttribute(jst_attr_prefix + "text");
 			}
 			return true;
 		},
@@ -223,13 +212,14 @@
 			node.innerHTML = value;
 			return true;
 		}
-	};
-	directives[jst_attr_text] = {
-		name: jst_attr_text,
-		compile: function($jst, node, result, nodeName, nodeValue) {
+	});
+	directives.push({
+		name: jst_attr_prefix + "text",
+		compile: function($jst, node, result) {
+			var nodeValue= node.getAttribute(this.name);
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_text], name: nodeName, value: nodeValue, processor: exec_value_function.create($jst, nodeValue) });
-				node.removeAttribute(jst_attr_text);
+				result.parameters.push({directive: this, name: this.name, processor: exec_value_function.create($jst, nodeValue) });
+				node.removeAttribute(this.name);
 			}
 			return true;
 		},
@@ -241,19 +231,21 @@
 			node.innerText = value;
 			return true;
 		},
-	};
-	directives[jst_other_attrs] = {
-		name: jst_other_attrs,
-		compile: function($jst, node, result, nodeName, nodeValue) {
-			var i;
-			for(i=0; i < node.attributes.length; ++i){
-				nodeName = node.attributes[i].nodeName;
-				if(directives[nodeName] === undefined){
-					nodeValue = node.attributes[i].nodeValue;
+	});
+	directives.push({
+		name: "*",
+		compile: function($jst, node, result) {
+			var i, attrs = [], nodeName, nodeValue;
+			for(i = 0; i < node.attributes.length; ++i){
+				attrs.push(node.attributes[i].nodeName);
+			}
+			for(i=0; i < attrs.length; ++i){
+				nodeName = attrs[i];
+				if(directives.find(function(e){return e.name == nodeName}) === undefined){
+					nodeValue = node.getAttribute(nodeName);
 					if(nodeValue.match(REGEX_EXPRESSION)){
-						result.parameters.push({directive: directives[jst_other_attrs], name: nodeName, value: nodeValue, processor: exec_value_function.create($jst, nodeValue) });
+						result.parameters.push({directive: this, name: nodeName, processor: exec_value_function.create($jst, nodeValue) });
 						node.removeAttribute(nodeName);
-						-- i;
 					}
 				}
 			}
@@ -265,13 +257,14 @@
 			jst.node.attr(node, name.indexOf(jst_attr_prefix)==0? name.substr(jst_attr_prefix.length) : name, value)
 			return true;
 		},
-	};
-	directives[jst_attr_bind] = {
-		name: jst_attr_bind,
-		compile: function($jst, node, result, nodeName, nodeValue) {
+	});
+	directives.push({
+		name: jst_attr_prefix + "bind",
+		compile: function($jst, node, result) {
+			var nodeValue= node.getAttribute(this.name);
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_bind], name: nodeName, value: nodeValue, processor: exec_bind_function.create($jst, nodeValue) });
-				node.removeAttribute(nodeName);	
+				result.parameters.push({directive: this, name: this.name, processor: exec_bind_function.create($jst, nodeValue) });
+				node.removeAttribute(this.name);	
 			}
 			return true;
 		},
@@ -283,13 +276,14 @@
 			//value.fnc($ctx, node, value.obj, value.key);
 			return true;
 		},
-	};
-	directives[jst_attr_call] = {
-		name: jst_attr_call,
-		compile: function($jst, node, result, nodeName, nodeValue) {
+	});
+	directives.push({
+		name: jst_attr_prefix + "call",
+		compile: function($jst, node, result) {
+			var nodeValue= node.getAttribute(this.name);
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_call], name: nodeName, value: nodeValue, processor: exec_call_function.create($jst, nodeValue) });
-				node.removeAttribute(nodeName);	
+				result.parameters.push({directive: this, name: this.name, processor: exec_call_function.create($jst, nodeValue) });
+				node.removeAttribute(this.name);	
 			}
 			return true;
 		},
@@ -299,13 +293,14 @@
 			}
 			return true;
 		},
-	};
-	directives[jst_attr_recursive] = {
-		name: jst_attr_recursive,
-		compile: function($jst, node, result, nodeName, nodeValue) {
+	});
+	directives.push({
+		name: jst_attr_prefix + "recursive",
+		compile: function($jst, node, result) {
+			var nodeValue= node.getAttribute(this.name);
 			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_recursive], name: nodeName, value: nodeValue, processor: exec_value_function.create($jst, nodeValue) });
-				node.removeAttribute(nodeName);	
+				result.parameters.push({directive: this, name: this.name, processor: exec_value_function.create($jst, nodeValue) });
+				node.removeAttribute(this.name);	
 			}
 			return true;
 		},
@@ -316,49 +311,13 @@
 			}
 			return true;
 		}
-	};
-	directives[jst_attr_item_end] = {
-		name: jst_attr_item_end,
-		compile: function($jst, node, result, nodeName, nodeValue) {
-			if(node.getAttribute(jst_attr_repeat) == null){
-				node.removeAttribute(nodeName);	
-				nodeValue = null;
-			}
-			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_item_end], name: nodeName, value: nodeValue, processor: exec_call_function.create($jst, nodeValue) });
-				node.removeAttribute(nodeName);	
-			}
-			node.removeAttribute(jst_attr_repeat);
-			return true;
-		}
-	};
-	directives[jst_attr_end] = {
-		name: jst_attr_end,
-		compile: function($jst, node, result, nodeName, nodeValue) {
-			if(nodeValue != null){
-				result.parameters.push({directive: directives[jst_attr_end], name: nodeName, value: nodeValue, processor: exec_call_function.create($jst, nodeValue) });
-				node.removeAttribute(nodeName);	
-			}
-			return true;
-		}
-	};
-	
-	var directive_list = jst.directive_list = [
-		jst_attr_skip,
-		jst_attr_begin,
-		jst_attr_if,
-		jst_attr_repeat,
-		jst_attr_filter,
-		jst_attr_item_begin,
-		jst_attr_html,
-		jst_attr_text,
-		jst_other_attrs,
-		jst_attr_bind,
-		jst_attr_call,
-		jst_attr_recursive,
-		jst_attr_item_end,
-		jst_attr_end
-	];
+	});
+	directives.push({
+		name: jst_attr_prefix + "item-end"
+	});
+	directives.push({
+		name: jst_attr_prefix + "end"
+	});
 	
 	var special_attributes = {
 		"input": ["disabled", "readonly", "checked", "required"],
@@ -446,7 +405,7 @@
 				return parts[0]($ctx, $ctl);
 			}
 			var i, result = [];
-			for(i in parts){
+			for(i =0; i < parts.length; ++i){
 				result.push(typeof(parts[i]) == "string"? parts[i] : parts[i]($ctx, $ctl));
 			}
 			return result.join("");
@@ -604,14 +563,16 @@
 			if(nodeName == "value" && tagName == "input") {
 				node.value = nodeValue;
 			}
+			//if(nodeName == "checked" && tagName == "input" && node.getAttribute("type").toLowerCase() == "radio" && nodeValue == true) {
+			//	node.checked = true;
+			//}
 		},
 		create: function(node) {
 			jst.node.div.innerHTML = node.outerHTML;
 			return jst.node.div.firstChild;
 		},
 		replace: function(node, repl) {
-			node.parentNode.insertBefore(repl, node);
-			node.parentNode.removeChild(node);
+			node.parentNode.replaceChild(repl, node);
 			return repl;
 		},
 		text: function(node, preserveWhiteSpace) {
@@ -647,7 +608,7 @@
 	}
 	
 	var compile = function($jst, dom, preserveWhiteSpace, seq, tid) {
-		var node, directive, action, n,	result, nodeName, nodeValue;
+		var node, directive, seqno, n,	result;
 
 		node = dom.childNodes[0];
 		while(node) {
@@ -656,26 +617,23 @@
 			}
 			if(node && node.nodeType == 1) {
 				result = {parameters: []};
-				for(n = 0; n < directive_list.length; ++ n){
-					nodeName = directive_list[n];
-					directive = directives[nodeName];
-					nodeValue = node.getAttribute(nodeName);
-					action = !directive.compile || directive.compile($jst, node, result, nodeName, nodeValue);
-					if(!action){
+				for(n = 0; n < directives.length; ++ n){
+					directive = directives[n];
+					if(directive.compile && !directive.compile.call(directive, $jst, node, result)){
 						break;
 					}
 				}
-				n = 0;
+				seqno = 0;
 				if(result.parameters.length > 0 ) {
 					$jst.nodes[seq] = result;
-					n = seq;
+					seqno = seq;
 					node.setAttribute(tid, seq++);
 				}
-				if(action){
+				if(n == directives.length){
 					seq = compile($jst, node, preserveWhiteSpace, seq, tid);
 				}
-				if(n) {
-					$jst.nodes[n]["dom"] = { outerHTML: node.outerHTML, innerHTML : node.innerHTML };
+				if(seqno) {
+					$jst.nodes[seqno]["dom"] = { outerHTML: node.outerHTML, innerHTML : node.innerHTML };
 				}
 			}
 
@@ -742,13 +700,16 @@
 				$jst.expr[data] = create_vm_function(exec_value_function, { "TODO": expr });		
 			}
 			data = $jst.expr[data]($ctx, node);
-			if(data == undefined || data == null){
+			if(data === undefined || data === null){
 				data = "";
 			}
-			node = document.createTextNode(data);
 			if(result.previousSibling.nodeType == 8){
-				result.parentNode.insertBefore(node, result);
-			}else{
+				if(data !== ""){
+					node = document.createTextNode(data);
+					result.parentNode.insertBefore(node, result);
+				}
+			}else if(result.previousSibling.data != data) {
+				node = document.createTextNode(data);
 				result.previousSibling.data = node.data;
 			}
 		}else{
@@ -819,7 +780,9 @@
 
 		jst.node.data(target, "jst-ctx", ctx);
 
+	//target.style.display = "node";
 		process(ctx, target, 0);
+	//target.style.display = "";
 	}
 
 

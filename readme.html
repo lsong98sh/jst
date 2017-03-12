@@ -1,0 +1,402 @@
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<script src="3party/jquery-1.11.3.js"></script>
+		<script src="3party/jsplus.js"></script>
+		<script src="jst.js"></script>
+		
+		<style>
+			.sample {
+				border: 1px solid gray;
+				padding: 0;
+				margin: 0;
+				margin-top:10px;
+			}
+			
+			.title {
+				background-color: black;
+				color: white;
+				padding:0;
+				margin:0;
+			}
+			br {
+				margin:0
+			}
+			fieldset{
+				margin: 10px 20px 10px 20px;
+				border: 1px solid darkgray;
+			}
+			h1 {
+				text-indent: 20px;
+			}
+			pre{ 
+				tab-size:2; 
+			}
+		</style>
+	</head>	
+	<body>
+		<div class="sample">
+			<h1 class="title">Guide</h1>
+			<pre>
+	What is JST:
+		JST is a small, fast template utility in replacing for AngularJS / Vue.
+		It can be used in conjunction with almost all other frameworks, such as jquery, dojo.
+		Also you can use JST to make your own framework as well.
+		
+	Usage:
+		var tmpl = document.getElementById("template"); //template 
+		var target = document.getElementById("output"); //render target
+		var jt = new jst("name", tmpl, false);          //create and compile template
+		j.render(target, data, true);                   //render in refresh mode
+		
+	Class document:
+		constructor:
+			jst(name, dom, preserveWhiteSpace);
+				name: unique name of the template
+				dom: dom object / template string
+				preserveWhiteSpace: trim textnode. default: false.
+				
+		method:
+			jst.render(target, data, refresh);
+				data: the data used for template
+				dom: the output target
+				refresh: true: refresh mode, false: patch mode. default: false.
+				
+	List of attributes for template direction in execution order:
+		jst-skip                : Skip the processing of this node. Used when the node contains a large third party user control(eg. google map), 
+		                          *The processing of the following directions is also skipped.
+		jst-begin               : Call javascript functions before processing
+		jst-if                  : Output the node when the expression is valued true
+		jst-repeat              : Repeat the node itself 
+		jst-filter              : Filter condition for jst-repeat
+		jst-item-begin          : Call javascript functions when output the node. used with jst-repeat only.
+		jst-html                : Set the innerHTML property value to the result of the expression
+		jst-text                : Set the innerText property value to the result of the expression
+		jst-bind                : Create a data binding delegate and set data to the node using name 'jst-bind'. (under construction)
+		jst-data-*              : Store data to dom object, using name after 'jst-data-'.(under construction)
+		jst-call                : Execute javascript functions before processing it's child nodes
+		jst-recursive           : Skip the processing of the child nodes when the expression is valued false
+		jst-behavior            : User defined controll implementation.(under construction)
+		jst-item-end            : Call javascript functions after output the node and it's child nodes. used with jst-repeat only
+		jst-end                 : Call javascript functions  after processing the node and it's child nodes
+
+		*do not use jst-repeat and jst-loop in the same node
+		*jst-text will over-write the output of jst-html
+
+		
+	Pre-defined varibles for template expression:
+		$jst    : the jst class object
+		$target : the render target
+		$data   : refer to the render data
+		$ctl    : the current node on processing
+	
+	Limitation:
+		The varible decleared with 'var' is not accessable across directives. eg. {{var i in list}}
+		Use {{$data.i in list}} or {{i in list}} instead.
+	
+	How to write template:
+		Template language is pure javascript expression. See the following sample.
+		Basically, there is no additional rules to study.
+
+	About Target DOM object:
+		jst add context data to the render target dom object.
+			jst-ctx    : the context data { $jst, $target, $data }
+	    use jst.node.data(dom, 'jst-ctx') to get the jst context object.
+	    (something like angular.element('[ng-controller=ctrl]').scope();)
+	    
+	Advanced usage:
+		for more adnaced usage, see the samples in the sample folder.
+		
+	*this sample uses jquery and jsplus(a js prototype extension for old browser.) 
+			</pre>
+		</div>
+
+		<div name="test" class="sample">
+			<h1 class="title">simple text output</h1>
+			<script type="text/template"name="html">
+				<div>simple:{{text}}</div>
+			</script>
+			<script type="text/template" name="data">
+				{
+					text: "john smith is <b>tall</b>.\r\nThis is second line.\nThis is thrid line.\rThis is forth line."
+				};
+			</script>
+		</div>		
+
+		<div name="test" class="sample">
+			<h1 class="title">text output</h1>
+			<script type="text/template" name="html">
+				<div>jst-text: <span jst-text="{{text}}"></span></div>
+			</script>
+			<script type="text/template" name="data">
+				{
+					text: "john smith is <b>tall</b>.\r\nThis is second line.\nThis is thrid line.\rThis is forth line."
+				};
+			</script>
+		</div>		
+
+		<div name="test" class="sample">
+			<h1 class="title">html output</h1>
+			<script type="text/template" name="html">
+				<div>jst-html:<span jst-html="{{text}}"></span></div>
+			</script>
+			<script type="text/template" name="data">
+				{
+					text: "john smith is <b>tall</b>.\r\nThis is second line.\nThis is thrid line.\rThis is forth line."
+				};
+			</script>
+		</div>		
+
+		<div name="test" class="sample">
+			<h1 class="title">complex text output</h1>
+			<script type="text/template" name="html">
+				<div>mix with static text:<span jst-text="==={{text.toUpperCase() + ' plus alpha'}}==="></span></div>
+			</script>
+			<script type="text/template" name="data">
+				{
+					text: "john smith is <b>tall</b>.\r\nThis is second line.\nThis is thrid line.\rThis is forth line."
+				};
+			</script>
+		</div>		
+
+		<div name="test" class="sample">
+			<h1 class="title">textbox</h1>
+			<script type="text/template" name="html">
+				<div>name:<input type="text" value="{{name}}"></div>
+				<div>name:<input readonly type="text" value="{{name}}"></div>
+				<div>name:<input disabled type="text" value="{{name}}"></div>
+			</script>
+			<script type="text/template" name="data">
+				{
+					name: "john smith"
+				};
+			</script>
+		</div>	
+		
+		<div name="test" class="sample">
+			<h1 class="title">select</h1>
+			<script type="text/template" name="html">
+				<div>
+					<select>
+						<option value="1" selected="{{$ctl.value==value}}">apple</option>
+						<option value="2" selected="{{$ctl.value==value}}">banana</option>
+						<option value="3" selected="{{$ctl.value==value}}">orange</option>
+					</select>
+				</div>
+			</script>
+			<script type="text/template" name="data">
+				{
+					value: 1,
+				};
+			</script>
+		</div>
+
+		<div name="test" class="sample">
+			<h1 class="title">radio</h1>
+			<script type="text/template" name="html">
+				<div>
+					<input type="radio" name="gender" value="0" checked="{{$ctl.value==gender}}">male
+					<input type="radio" name="gender" value="1" checked="{{$ctl.value==gender}}">female
+				</div>
+			</script>
+			<script type="text/template" name="data">
+				{
+					gender: 1,
+				};
+			</script>
+		</div>	
+		
+		<div name="test" class="sample">
+			<h1 class="title">checkbox</h1>
+			<script type="text/template" name="html">
+				<div>
+					<input type="checkbox" name="fish" value="1" checked="{{meal.fish==1}}">fish
+					<input type="checkbox" name="pork" value="1" checked="{{meal.pork==1}}">pork
+					<input type="checkbox" name="beef" value="1" checked="{{meal.beef==1}}">beef
+				</div>
+			</script>
+			<script type="text/template" name="data">
+				{
+					meal: {
+						fish: 0,
+						pork: 1,
+						beef: 1
+					}
+				};
+			</script>
+		</div>		
+		
+		<div name="test" class="sample">
+			<h1 class="title">expression &amp; others</h1>
+			<script type="text/template" name="html">
+				<div>
+					<input type="text" value="{{text.toUpperCase()}}">
+				</div>
+				<div>
+					<div jst-style="width:80px;border:{{width}}px solid black;margin:{{width}};padding:{{width}}px;background-color:{{color}}">test</div>
+				</div>
+				attributes other than predefined directives, which starts with 'jst-' will be outputed without 'jst-'.  
+				used for img's src attribute to avoid network error.
+			</script>
+			<script type="text/template" name="data">
+				{
+					text: "Hello World!",
+					width: 2,
+					color: "#ff7788"
+				};
+			</script>
+		</div>		
+
+		<div name="test" class="sample">
+			<h1 class="title">condition</h1>
+			<script type="text/template" name="html">
+				<div>
+					<span jst-if="{{value1 >= 0}}" style="color:black">{{value1}}</span>
+					<span jst-if="{{value1 < 0}}" style="color:red">{{value1}}</span>
+				</div>
+				<div>
+					<span jst-if="{{value2 >= 0}}" style="color:black">{{value2}}</span>
+					<span jst-if="{{value2 < 0}}" style="color:red">{{value2}}</span>
+				</div>
+				<div>
+					<span style="color:{{(value2 &lt; 0)? 'red':'black'}}">{{value2}}</span>
+				</div>
+			</script>
+			<script type="text/template" name="data">
+				{
+					value1: 7,
+					value2: -10
+				};
+			</script>
+		</div>	
+
+		<div name="test" class="sample">
+			<h1 class="title">condition</h1>
+			<script type="text/template" name="html">
+				<div>
+					<span jst-if="@{{value1 >= 0}}" style="color:black">{{value1}}</span>
+					<span jst-if="@{{value1 < 0}}" style="color:red">{{value1}}</span>
+				</div>
+				<div>
+					<span jst-if="@{{value2 >= 0}}" style="color:black">{{value2}}</span>
+					<span jst-if="@{{value2 < 0}}" style="color:red">{{value2}}</span>
+				</div>
+				use @ to clear all inner outputs
+			</script>
+			<script type="text/template" name="data">
+				{
+					value1: 7,
+					value2: -10
+				};
+			</script>
+		</div>
+		
+		<div name="test" class="sample">
+			<h1 class="title">repeat</h1>
+			<script type="text/template" name="html">
+				<div>
+					<ul>
+						<li jst-repeat="{{$data.idx=0; idx < list.length; ++ idx}}">{{idx}}:{{list[idx]}}</li>
+					</ul>
+				</div>
+				the jst-repeat is the same as [for] expression
+			</script>
+			<script type="text/template" name="data">
+				{
+					list: ['a', 'b', 'c', 'd'],
+				};
+			</script>
+		</div>	
+		
+		<div name="test" class="sample">
+			<h1 class="title">repeat with output</h1>
+			<script type="text/template" name="html">
+				<div>
+					<ul>
+						<li jst-repeat="{{$data.idx=0; idx < list.length; ++ idx}}" jst-text="{{idx}}:{{list[idx]}}"></li>
+					</ul>
+				</div>
+				use jst-text in repeat.
+			</script>
+			<script type="text/template" name="data">
+				{
+					list: ['a', 'b', 'c', 'd'],
+				};
+			</script>
+		</div>	
+		
+		<div name="test" class="sample">
+			<h1 class="title">combination</h1>
+			<script type="text/template" name="html">
+				<div jst-skip>
+					add some large widget here. like google map. {{value}} is not parsed.
+				</div>
+				<div class="test"
+					jst-begin="{{console.log('begin')}}" 
+					jst-if="{{show}}" 
+					jst-repeat="{{$data.i=0; i < count; ++ i}}"
+					jst-filter="{{i %2 == 0}}"
+					jst-item-begin="{{console.log('item-begin')}}"
+					jst-style="background:{{(i % 4== 0)? '#e9e9e9' : '#e9e980'}}"
+					others="tag:{{i}}"
+					jst-call="{{console.log('call')}}"
+					jst-recursive="{{true}}"
+					jst-item-end="{{console.log('item-end')}}"
+					jst-end="{{console.log('end')}}">
+					<span jst-text="row:{{i}}"></span>
+				</div>	
+				see console output.
+			</script>
+			<script type="text/template" name="data">
+				{
+					count: 10,
+					show: true
+				};
+			</script>
+		</div>	
+	</body>	
+	<script>
+		function trim(t){
+			t = t.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+			var s = t.split(/\n/g);
+			for(var i = 0; i < s.length; ++ i){
+				s[i] = s[i].substr(4);
+			}
+			return s.slice(1).join("\n");
+		}
+		function html_encode(str)   
+		{   
+			return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/ /g, "&nbsp;").replace(/\t/g, "&nbsp;&nbsp;").replace(/\'/g, "&#39;").replace(/\"/g, "&quot;").replace(/\n/g, "<br>");   
+		}   
+		 
+		$(document).ready(function(){
+			var idx = 0;
+			$("[name=test").each(function(){
+				$(this).append("<fieldset><legend>HTML</legend><div name='html'></div></fieldset>");
+				$(this).append("<fieldset><legend>Data</legend><div name='data'></div></fieldset>");				
+				$(this).append("<fieldset><legend>Output</legend><div name='output'></div></fieldset>");
+				$(this).append("<fieldset><legend>Display</legend><div name='display'></div></fieldset>");
+				var o;
+				o = $(this).find("script[name=html]");
+				var html = trim(o.text());
+				$(this).find("div[name=html]").html(html_encode(html));
+				
+				var o = $(this).find("script[name=data]");
+				var data = trim(o.text());
+				$(this).find("div[name=data]").html(html_encode(data));
+
+				
+				var d = (new Function('return ' + data.replace(/^\n/g, "")))();
+				var o = $(this).find("[name=display]");
+				var t = new jst("sample-" + idx++, html, true);
+				t.render(o[0], d, true);
+
+				var o = $(this).find("[name=output]");
+				o.html(html_encode($(this).find("[name=display]").html()));
+				
+			});
+		});
+
+	</script>
+</html>
+

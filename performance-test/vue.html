@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="https://unpkg.com/vue/dist/vue.js"></script>
+		<style>
+			.tag{
+				display: inline-block;
+				padding: 5px;
+				border: 1px solid #c0c0c0;
+				width: 100px;
+			}
+			
+		</style>
+	</head>
+	<body>
+		<div id="app">
+			<button v-on:click="test1">test#1</button>
+			<button v-on:click="test2">test#2</button>
+			<div>
+				<div class="tag" v-for="x in names">{{x.name}}</div>
+			</div>
+		</div>
+	<script>
+		var names = [];
+		for(var i=0; i < 40000; ++ i){
+			names[i] = {name: "name@"+i};
+		} 
+		var app = new Vue({
+		  	el: '#app',
+		  	data: {
+		    	names: []
+		  	},
+		  	methods: {
+   			 	test1: function () {
+      				this.names = names;
+    			},
+   			 	test2: function () {
+      				names[0].name="hello";
+		    		names[19999].name="world";
+    			} 
+		  	}
+		})
+	</script>
+
+	</body>
+</html>

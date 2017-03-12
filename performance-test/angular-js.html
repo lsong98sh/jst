@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="https://cdn.static.runoob.com/libs/angular.js/1.4.6/angular.min.js"></script>
+		<style>
+			.tag{
+				display: inline-block;
+				padding: 5px;
+				border: 1px solid #c0c0c0;
+				width: 100px;
+			}
+			
+		</style>
+	</head>
+	<body>
+		<div ng-app="myApp" ng-controller="customersCtrl">
+			<button ng-click="test1()">test#1</button>
+			<button ng-click="test2()">test#2</button>
+			<div>
+				<div class="tag" ng-repeat="x in names">{{x.name}}</div>
+			</div>
+			
+		</div>
+		<script>
+			var app = angular.module('myApp', []);
+			app.controller('customersCtrl', function($scope, $http) {
+		    	var names = [];
+	    		for(var i=0; i < 40000; ++ i){
+	    			names[i] = {name: "name@"+i};
+	    		}
+		    	
+		    	$scope.names = [];
+						    	
+		    	$scope.test1 = function(){
+		    		$scope.names = names;
+		    	}
+		    	$scope.test2 = function(){
+		    		names[0].name="hello";
+		    		names[19999].name="world";
+		    		$scope.names = names;
+		    	}
+			});
+		</script>
+	</body>
+</html>
