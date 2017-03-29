@@ -44,25 +44,100 @@
 		Also you can use JST to make your own framework as well.
 		
 	Usage:
-		var tmpl = document.getElementById("template"); //template 
-		var target = document.getElementById("output"); //render target
-		var jt = new jst("name", tmpl, false);          //create and compile template
-		j.render(target, data, true);                   //render in refresh mode
+		Html:
+			&lt;div id="template"&gt;
+				&lt;input type="text" value="{{name}}"&gt;
+				&lt;div&gt;Your age is {{age}}.&lt;/div"&gt;
+			&lt;/div&gt;
+
+			&lt;div id="output"&gt;
+			&lt;/div&gt;
+		Js:
+			var template = document.getElementById("template"); //template 
+			var target = document.getElementById("output");     //render target
+			var j = new jst(template, target, false);           //create and compile template
+			j.render({name: 'joe', age: 10});                   //render
+			
+		Output html:
+			&lt;div id="template"&gt;
+				&lt;input type="text" value="{{name}}"&gt;
+				&lt;div&gt;Your age is {{age}}.&lt;/div"&gt;
+			&lt;/div&gt;
+
+			&lt;div id="output"&gt;
+				&lt;input type="text" value="joe"&gt;
+				&lt;div&gt;Your age is 10.&lt;/div"&gt;
+			&lt;/div&gt;
 		
-	Class document:
+	About MVVM:
+		MVVM support is implemented by using Object.definedProperty.
+		To set a value in array. use ary.item(index, value);
+		value changes using the following method will not be detected.
+		  delete property/element:
+		    delete ary[i]           => use ary.splice(i, 1)
+		    delete obj.prop         => use obj.$delete(name)  (under construction)
+		  add property:
+		    obj.newProperty = 1     => use obj.$prop(name, value)  (under construction)
+		    obj[newProperty] = 1    => use obj.$prop(name, value)  (under construction)
+
+		Example:
+			Html:
+				...
+				&lt;input type="text" value="{{count}}" jst-bind="@count" &gt;
+				&lt;div&gt;The count is {{count}}.&lt;/div"&gt;
+				...
+			Js:
+				var j = new jst("template", "output", false);   
+				var data = {count: 100};
+				j.render(data);  //render
+				j.watch(data);	 //add watch to the rendered data
+				
+				//add event listener. use jquery for convenience.
+				$(target).on("input", ":text, textarea", function(){
+					var dom = event.target, obj = jst.get_bind_obj(dom); //get the object
+					if(obj){
+						var key = jst.get_bind_key(dom); //get the key
+						obj[key] = dom.value;  //set the value to the binded object
+					}
+				});
+		** the value of jst-bind must in the form of obj@key.
+		**  @count equals to $data.count
+		**  tags@name equals to $data.tags.name
+		**  tags@{{i}} equals to $data.tags[i]
+		**  tags@5 equals to $data.tags[5]
+		**  the key can be an string expression. eg. tags@col_{i} 
+
+	API document:
 		constructor:
 			jst(name, dom, preserveWhiteSpace);
 				name: unique name of the template
-				dom: dom object / template string
+				dom: dom object / id of dom object / template string 
 				preserveWhiteSpace: trim textnode. default: false.
 				
-		method:
-			jst.render(target, data, refresh);
+		instance method:
+			render(data, refresh);
 				data: the data used for template
 				dom: the output target
 				refresh: true: refresh mode, false: patch mode. default: false.
 				
-	List of attributes for template direction in execution order:
+			watch(data);	 
+				data: the data object to watch
+				
+		class method:
+			jst.set_data(node, name, value) //store data to node
+			jst.get_data(node, name)   		//get dom's stored data
+			jst.stock_functions 			//stock functions. change with care
+			jst.get_bind_obj   				//get the binded object
+			jst.get_bind_key 				//get the key of the binded object
+			jst.prefix 						//prefix of jst attr name. default is "jst-"
+			jst.special_attributes 			//special attributes definition. do not change!
+			jst.directives 					//directives management
+				insert(directive, name)     //insert directive before the directive specfied by the name
+				remove(name)                //remove the directive by name
+				indexOf(name)               //return the compile order of the directive
+				find(name) 					//find the directive by name
+
+	List of template directives in compile order:
 		jst-skip                : Skip the processing of this node. Used when the node contains a large third party user control(eg. google map), 
 		                          *The processing of the following directions is also skipped.
 		jst-begin               : Call javascript functions before processing
@@ -72,40 +147,50 @@
 		jst-item-begin          : Call javascript functions when output the node. used with jst-repeat only.
 		jst-html                : Set the innerHTML property value to the result of the expression
 		jst-text                : Set the innerText property value to the result of the expression
-		jst-bind                : Create a data binding delegate and set data to the node using name 'jst-bind'. (under construction)
-		jst-data-*              : Store data to dom object, using name after 'jst-data-'.(under construction)
+		jst-bind                : Store a data binding (obj,key) to the node. 
+		jst-data-*              : Store data to dom object, using name after 'jst-data-'.
+		jst* or *				: other attributes
 		jst-call                : Execute javascript functions before processing it's child nodes
+		jst-purge               : Clean child nodes when the expression is valued true
 		jst-recursive           : Skip the processing of the child nodes when the expression is valued false
-		jst-behavior            : User defined controll implementation.(under construction)
 		jst-item-end            : Call javascript functions after output the node and it's child nodes. used with jst-repeat only
 		jst-end                 : Call javascript functions  after processing the node and it's child nodes
 
 		*do not use jst-repeat and jst-loop in the same node
 		*jst-text will over-write the output of jst-html
 
+	Change the way of data binding.
+		the jst-bind and jst-data-* use $ctl[name] = value to store the data to dom
+		to change the way of it, eg, using jquery, override the get_data and set_data stock functions before render.
 		
+			jst.stock_functions["set_data"] = function(node, name, value){
+				$(node).data(name, value);
+			}
+			
+			jst.stock_functions["get_data"] = function(node, name){
+				return $(node).data(name);
+			}
+			
 	Pre-defined varibles for template expression:
 		$jst    : the jst class object
 		$target : the render target
 		$data   : refer to the render data
 		$ctl    : the current node on processing
+		
+		**for advanced usage only**
 	
-	Limitation:
-		The varible decleared with 'var' is not accessable across directives. eg. {{var i in list}}
-		Use {{$data.i in list}} or {{i in list}} instead.
+	Notice:
+		changing dom node with care.
 	
 	How to write template:
 		Template language is pure javascript expression. See the following sample.
-		Basically, there is no additional rules to study.
+		No additional rules or syntax!
 
-	About Target DOM object:
-		jst add context data to the render target dom object.
-			jst-ctx    : the context data { $jst, $target, $data }
-	    use jst.node.data(dom, 'jst-ctx') to get the jst context object.
-	    (something like angular.element('[ng-controller=ctrl]').scope();)
-	    
 	Advanced usage:
-		for more adnaced usage, see the samples in the sample folder.
+		for more advanced usage, see the samples in the sample folder.(under construction)
+		1) user defined directive.
+		2) use with jquery-ui
+		3) use with dojo
 		
 	*this sample uses jquery and jsplus(a js prototype extension for old browser.) 
 			</pre>
@@ -251,12 +336,12 @@
 			<h1 class="title">condition</h1>
 			<script type="text/template" name="html">
 				<div>
-					<span jst-if="{{value1 >= 0}}" style="color:black">{{value1}}</span>
-					<span jst-if="{{value1 < 0}}" style="color:red">{{value1}}</span>
+					<span jst-if="value1 >= 0" style="color:black">{{value1}}</span>
+					<span jst-if="value1 < 0" style="color:red">{{value1}}</span>
 				</div>
 				<div>
-					<span jst-if="{{value2 >= 0}}" style="color:black">{{value2}}</span>
-					<span jst-if="{{value2 < 0}}" style="color:red">{{value2}}</span>
+					<span jst-if="value2 >= 0" style="color:black">{{value2}}</span>
+					<span jst-if="value2 < 0" style="color:red">{{value2}}</span>
 				</div>
 				<div>
 					<span style="color:{{(value2 &lt; 0)? 'red':'black'}}">{{value2}}</span>
@@ -274,14 +359,13 @@
 			<h1 class="title">condition</h1>
 			<script type="text/template" name="html">
 				<div>
-					<span jst-if="@{{value1 >= 0}}" style="color:black">{{value1}}</span>
-					<span jst-if="@{{value1 < 0}}" style="color:red">{{value1}}</span>
+					<span jst-purge="value1 >= 0" style="color:black">{{value1}}</span>
+					<span jst-purge="value1 < 0" style="color:red">{{value1}}</span>
 				</div>
 				<div>
-					<span jst-if="@{{value2 >= 0}}" style="color:black">{{value2}}</span>
-					<span jst-if="@{{value2 < 0}}" style="color:red">{{value2}}</span>
+					<span jst-purge="value2 >= 0" style="color:black">{{value2}}</span>
+					<span jst-purge="value2 < 0" style="color:red">{{value2}}</span>
 				</div>
-				use @ to clear all inner outputs
 			</script>
 			<script type="text/template" name="data">
 				{
@@ -296,7 +380,7 @@
 			<script type="text/template" name="html">
 				<div>
 					<ul>
-						<li jst-repeat="{{$data.idx=0; idx < list.length; ++ idx}}">{{idx}}:{{list[idx]}}</li>
+						<li jst-repeat="var idx=0; idx < list.length; ++ idx">{{idx}}:{{list[idx]}}</li>
 					</ul>
 				</div>
 				the jst-repeat is the same as [for] expression
@@ -313,7 +397,7 @@
 			<script type="text/template" name="html">
 				<div>
 					<ul>
-						<li jst-repeat="{{$data.idx=0; idx < list.length; ++ idx}}" jst-text="{{idx}}:{{list[idx]}}"></li>
+						<li jst-repeat="var idx=0; idx < list.length; ++ idx" jst-text="{{idx}}:{{list[idx]}}"></li>
 					</ul>
 				</div>
 				use jst-text in repeat.
@@ -324,7 +408,6 @@
 				};
 			</script>
 		</div>	
-		
 		<div name="test" class="sample">
 			<h1 class="title">combination</h1>
 			<script type="text/template" name="html">
@@ -332,17 +415,17 @@
 					add some large widget here. like google map. {{value}} is not parsed.
 				</div>
 				<div class="test"
-					jst-begin="{{console.log('begin')}}" 
-					jst-if="{{show}}" 
-					jst-repeat="{{$data.i=0; i < count; ++ i}}"
-					jst-filter="{{i %2 == 0}}"
-					jst-item-begin="{{console.log('item-begin')}}"
+					jst-begin="console.log('begin')" 
+					jst-if="show" 
+					jst-repeat="var i=0; i < count; ++ i"
+					jst-filter="i %2 == 0"
+					jst-item-begin="console.log('item-begin')"
 					jst-style="background:{{(i % 4== 0)? '#e9e9e9' : '#e9e980'}}"
 					others="tag:{{i}}"
-					jst-call="{{console.log('call')}}"
-					jst-recursive="{{true}}"
-					jst-item-end="{{console.log('item-end')}}"
-					jst-end="{{console.log('end')}}">
+					jst-call="console.log('call')"
+					jst-recursive="true"
+					jst-item-end="console.log('item-end')"
+					jst-end="console.log('end')">
 					<span jst-text="row:{{i}}"></span>
 				</div>	
 				see console output.
@@ -388,8 +471,8 @@
 				
 				var d = (new Function('return ' + data.replace(/^\n/g, "")))();
 				var o = $(this).find("[name=display]");
-				var t = new jst("sample-" + idx++, html, true);
-				t.render(o[0], d, true);
+				var t = new jst(html, o[0], true);
+				t.render(d);
 
 				var o = $(this).find("[name=output]");
 				o.html(html_encode($(this).find("[name=display]").html()));
