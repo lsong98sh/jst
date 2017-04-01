@@ -247,9 +247,9 @@
 		<div name="test" class="sample">
 			<h1 class="title">textbox</h1>
 			<script type="text/template" name="html">
-				<div>name:<input type="text" value="{{name}}"></div>
-				<div>name:<input readonly type="text" value="{{name}}"></div>
-				<div>name:<input disabled type="text" value="{{name}}"></div>
+				<div>name:<input type="text" jst-value="{{name}}"></div>
+				<div>name:<input readonly type="text" jst-value="{{name}}"></div>
+				<div>name:<input disabled type="text" jst-value="{{name}}"></div>
 			</script>
 			<script type="text/template" name="data">
 				{
@@ -263,15 +263,15 @@
 			<script type="text/template" name="html">
 				<div>
 					<select>
-						<option value="1" selected="{{$ctl.value==value}}">apple</option>
-						<option value="2" selected="{{$ctl.value==value}}">banana</option>
-						<option value="3" selected="{{$ctl.value==value}}">orange</option>
+						<option value="1" jst-selected="{{$ctl.value==value}}">apple</option>
+						<option value="2" jst-selected="{{$ctl.value==value}}">banana</option>
+						<option value="3" jst-selected="{{$ctl.value==value}}">orange</option>
 					</select>
 				</div>
 			</script>
 			<script type="text/template" name="data">
 				{
-					value: 1,
+					value: 2
 				};
 			</script>
 		</div>
@@ -280,13 +280,14 @@
 			<h1 class="title">radio</h1>
 			<script type="text/template" name="html">
 				<div>
-					<input type="radio" name="gender" value="0" checked="{{$ctl.value==gender}}">male
-					<input type="radio" name="gender" value="1" checked="{{$ctl.value==gender}}">female
+					<input type="radio" name="gender" value="0" jst-checked="{{$ctl.value==gender}}">male
+					<input type="radio" name="gender" value="1" jst-checked="{{$ctl.value==gender}}">female
+					<input type="radio" name="gender" value="2" jst-checked="{{$ctl.value==gender}}">bi-sex
 				</div>
 			</script>
 			<script type="text/template" name="data">
 				{
-					gender: 1,
+					gender: 1
 				};
 			</script>
 		</div>	
@@ -295,9 +296,9 @@
 			<h1 class="title">checkbox</h1>
 			<script type="text/template" name="html">
 				<div>
-					<input type="checkbox" name="fish" value="1" checked="{{meal.fish==1}}">fish
-					<input type="checkbox" name="pork" value="1" checked="{{meal.pork==1}}">pork
-					<input type="checkbox" name="beef" value="1" checked="{{meal.beef==1}}">beef
+					<input type="checkbox" name="fish" value="1" jst-checked="{{meal.fish==1}}">fish
+					<input type="checkbox" name="pork" value="1" jst-checked="{{meal.pork==1}}">pork
+					<input type="checkbox" name="beef" value="1" jst-checked="{{meal.beef==1}}">beef
 				</div>
 			</script>
 			<script type="text/template" name="data">
@@ -315,7 +316,7 @@
 			<h1 class="title">expression &amp; others</h1>
 			<script type="text/template" name="html">
 				<div>
-					<input type="text" value="{{text.toUpperCase()}}">
+					<input type="text" jst-value="{{text.toUpperCase()}}">
 				</div>
 				<div>
 					<div jst-style="width:80px;border:{{width}}px solid black;margin:{{width}};padding:{{width}}px;background-color:{{color}}">test</div>
@@ -344,7 +345,7 @@
 					<span jst-if="value2 < 0" style="color:red">{{value2}}</span>
 				</div>
 				<div>
-					<span style="color:{{(value2 &lt; 0)? 'red':'black'}}">{{value2}}</span>
+					<span jst-style="color:{{(value2 &lt; 0)? 'red':'black'}}">{{value2}}</span>
 				</div>
 			</script>
 			<script type="text/template" name="data">
@@ -387,7 +388,7 @@
 			</script>
 			<script type="text/template" name="data">
 				{
-					list: ['a', 'b', 'c', 'd'],
+					list: ['a', 'b', 'c', 'd']
 				};
 			</script>
 		</div>	
@@ -404,7 +405,7 @@
 			</script>
 			<script type="text/template" name="data">
 				{
-					list: ['a', 'b', 'c', 'd'],
+					list: ['a', 'b', 'c', 'd']
 				};
 			</script>
 		</div>	
@@ -442,10 +443,15 @@
 		function trim(t){
 			t = t.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 			var s = t.split(/\n/g);
-			for(var i = 0; i < s.length; ++ i){
-				s[i] = s[i].substr(4);
+			for(var i = s.length -1;i >=0; -- i){
+				if(s[i].replace(/^\s*/g, "") != ""){
+					s[i] = s[i].substr(4);
+				}else{
+					s.splice(i,1);
+				}
 			}
-			return s.slice(1).join("\n");
+			
+			return s.join("\n");
 		}
 		function html_encode(str)   
 		{   
@@ -454,22 +460,22 @@
 		 
 		$(document).ready(function(){
 			var idx = 0;
-			$("[name=test").each(function(){
+			$("[name=test]").each(function(){
 				$(this).append("<fieldset><legend>HTML</legend><div name='html'></div></fieldset>");
 				$(this).append("<fieldset><legend>Data</legend><div name='data'></div></fieldset>");				
 				$(this).append("<fieldset><legend>Output</legend><div name='output'></div></fieldset>");
 				$(this).append("<fieldset><legend>Display</legend><div name='display'></div></fieldset>");
 				var o;
 				o = $(this).find("script[name=html]");
-				var html = trim(o.text());
+				var html = trim(o.html());
 				$(this).find("div[name=html]").html(html_encode(html));
 				
 				var o = $(this).find("script[name=data]");
-				var data = trim(o.text());
+				var data = trim(o.html());
 				$(this).find("div[name=data]").html(html_encode(data));
 
 				
-				var d = (new Function('return ' + data.replace(/^\n/g, "")))();
+				var d = (new Function('return ' + data.replace(/^\n/g, "")+";"))();
 				var o = $(this).find("[name=display]");
 				var t = new jst(html, o[0], true);
 				t.render(d);

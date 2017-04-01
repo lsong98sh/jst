@@ -14,22 +14,32 @@
 		    return s.join("");
 		},
 		expression = {
-			as_string : function(expr){
+			split : function(expr, fmatch, fremain){
 				var parts = [];
 				var s, p = 0;
 				REGEX_EXPRESSION.lastIndex = 0;
 		
 				while ((s = REGEX_EXPRESSION.exec(expr))) {
-					if (s.index > 0) {
-						parts.push("\"" + strconv(expr.substring(p, s.index), str_escape_ary) + "\"");
+					if (s.index > p) {
+						parts.push(fremain(expr.substring(p, s.index)));
 					}
-					parts.push("function(){try{return "+ s[1] +"; }catch(err){return ''}}()");
+					parts.push(fmatch(s[1]));
 					p = s.index + s[0].length;
 				}
 				if(p < expr.length){
-					parts.push("\"" + strconv(expr.substring(p), str_escape_ary) + "\"" );
-				}				
-				return parts.join("+");				
+					parts.push(fremain(expr.substring(p)));
+				}
+				return parts;
+			},
+			safe_get : function(s){
+				return "function(){try{return "+ s +"; }catch(err){return ''}}()";
+			},
+			as_string : function(expr){
+				return expression.split(expr, function(s){
+					return expression.safe_get(s);
+				}, function(s){
+					return "\"" + strconv(s, str_escape_ary) + "\"";
+				}).join("+");
 			},
 			test: function(syntax, value){
 				var f = new Function(syntax.replace(/\?/g, value));
@@ -45,7 +55,9 @@
 		get_attribute_names = function(node){
 			var i = 0;attrs = [];
 			for(; i < node.attributes.length; ++i){
-				attrs.push(node.attributes[i].nodeName);
+				if(node.attributes[i] && node.attributes[i].specified){
+					attrs.push(node.attributes[i].nodeName);
+				}
 			}
 			return attrs;
 		},
@@ -231,8 +243,8 @@
 			for(i=0; i < attrs.length; ++i){
 				nodeName = attrs[i];
 				if(find_directive(nodeName) === undefined){
-					nodeValue = node.getAttribute(nodeName);
-					if(nodeValue.match(REGEX_EXPRESSION)){
+					nodeValue = "" + node.getAttribute(nodeName);
+					if(nodeValue && nodeValue.match(REGEX_EXPRESSION)){
 						result.code += "set_attribute($ctl, \"" + ((nodeName.indexOf(jst_attr_prefix)==0)? nodeName.substr(jst_attr_prefix.length) : nodeName) + "\", " + expression.as_string(nodeValue) + ");\n";
 						node.removeAttribute(nodeName);
 					}
@@ -259,7 +271,7 @@
 				if(expression.test("if(?){}", nodeValue)){
 					result.code = "$ctx.recursive=" + nodeValue + ";if($ctx.recursive)"; 
 				}
-				result.code += "{ensure_inner($ctl, "+seq+");}else{comment_inner($ctl, "+seq+");}"
+				result.code += "{ensure_node($ctl, "+seq+");}else{comment_inner($ctl, "+seq+");}"
 			}
 			return true;
 		}
@@ -291,8 +303,9 @@
 	});
 
 	function node_contains_directive(node){
-		for(var i=0;i<node.attributes.length; ++i){
-			if(find_directive(node.attributes[i].nodeName) != undefined || node.attributes[i].nodeValue.match(REGEX_EXPRESSION)){
+		var attr = get_attribute_names(node);
+		for(var i=0;i<attr.length; ++i){
+			if(find_directive(attr[i]) != undefined || ("" + node.getAttribute(attr[i])).match(REGEX_EXPRESSION)){
 				return true;
 			}
 		}
@@ -320,16 +333,19 @@
 			if(node.nodeType == 3) {
 				result = node.nextSibling;
 				txt = get_node_text(node, preserveWhiteSpace);
+				var elm = document.createElement("div");
 				if(txt.length > 0) {
-					txt = txt.replace(REGEX_EXPRESSION, function(c) {
+					expression.split(txt, function(s){
 						++ $jst.seq;
 						seq = $jst.seq;
-						code += "$ctl = push_node($ctl, " + $jst.seq + ");$ctl=set_text($ctl, " + seq + ", " + expression.as_string(c) + ");$ctl = pop_node($ctl);\n";
-						return "<!--" + $jst.id + "=" + seq + "--><!--text:end-->";
-						
-					});
-					var elm = document.createElement("div");
-					elm.innerHTML = txt;
+						code += "$ctl = push_node($ctl, " + $jst.seq + ");$ctl=set_text($ctl, " + seq + ", " + expression.safe_get(s) + ");$ctl = pop_node($ctl);\n";
+						elm.appendChild(document.createComment($jst.id + "=" + seq));
+						elm.appendChild(document.createComment("text:end"));
+						return s;
+					}, function(s){
+						elm.appendChild(document.createTextNode(s));
+						return s;
+					})			
 					while(elm.childNodes.length > 0) {
 						node.parentNode.insertBefore(elm.firstChild, node);
 					}
@@ -378,10 +394,7 @@
 					}
 				}
 				code += "\n$ctl = pop_node($ctl);\n";
-				$jst.nodes[seq].dom = {
-					innerHTML: node.innerHTML,
-					outerHTML: node.outerHTML
-				}
+				$jst.nodes[seq].dom = node;
 			}else if(node.nodeType == 1){
 				code +=	compile($jst, node, preserveWhiteSpace);
 			}
@@ -405,7 +418,7 @@
 		$jst.id = jst_attr_prefix + "id-" + uuid(8);
 		$jst.nodes = [];
 		$jst.code = compile($jst, elm, preserveWhiteSpace);
-		$jst.nodes[0] = elm.innerHTML;
+		$jst.nodes[0] = {dom : elm};
 		$jst.target = typeof(target)=="string"? document.getElementById(target) : target;
 		$jst.rendered = false;
 		console.log($jst);
@@ -413,7 +426,15 @@
 	
 	function render(data, refresh) {
 		if(refresh || this.rendered == false) {
-			this.target.innerHTML = this.nodes[0];
+			while(this.target.hasChildNodes()) {  
+        		this.target.removeChild(this.target.firstChild);  
+    		} 		
+			var n = this.nodes[0].dom.firstChild;
+			while(n){
+				var nxt = n.nextSibling;
+				this.target.appendChild(n.cloneNode(true));
+				n = nxt;
+			}
 			this.rendered = true;
 		}	
 		var body = "var $ctx = {ctls:[]}, $ctl = $target, $emptyNode = document.createElement('div')\n";
@@ -433,88 +454,96 @@
 		this.dirty = false;
 		this.renderproc(this, this.target, data);
 	}
-	
-	function observeArray(arr, callback) {
-		for (var i = 0, l = arr.length; i < l; i++) {
-    		observe(arr[i], callback);
-  		}
-		if(arr.isObservable){
-			arr.isObservable = true;
-			var oam = ['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse'];
-			var arrayProto = Array.prototype;
-		 	var hackProto = Object.create(Array.prototype);
-		  	oam.forEach(function(method){
-		    	Object.defineProperty(hackProto, method, {
-		    		writable: true,
-		    		enumerable: true,
-		   			configurable: true,
-					value: function() {
-						var me = this;
-						//TODO: observe item
-						var result = arrayProto[method].apply(me, Array.prototype.slice.call(arguments));
-						callback();
-						return  result;
-		      		},
-		    	})
-		  	});
-		  	arr.item = function(i, v){
-		  		if(arr[i] != v){
-		  			observe(v, callback);
-					arr[i] = v;
-					callback();
-		  		}
-		  	};
-			arr.__proto__ = hackProto;
-		}
-	}
-	
-	function observeProperty(obj, k, callback) {
-		var old = obj[k];
-		Object.defineProperty(obj, k, {
-		    enumerable: true,
-		    configurable: true,
-		    get: function() {
-		     	return old;
-		    },
-		    set: function(now) {
-		      	if(now !== old) {
-		        	old = now;
-		        	observe(old, callback);
-					callback();
-		      	}
-		    }
-		});
-		observe(old, callback);
-	}
-	
-	function observe(obj, callback) {
-		if(Object.prototype.toString.call(obj) === '[object Array]') {
-      		observeArray(obj, callback);
-    	} else if (obj.toString() === '[object Object]') {
-      		Object.keys(obj).forEach(function(key){
-    			observeProperty(obj, key, callback);
-  			});
-    	}
-	}
-	
-	function watch(data){
-		this.data = data;
-		$jst = this;
-		callback = function(){
-			if(!$jst.dirty){
-				$jst.dirty = true;
-				setTimeout(function(){
-					$jst.render(data);		
-				}, 100);
-			}
-		}
-		observe(data, callback);
- 	}
-	
 	var jst = function(name, dom, preserveWhiteSpace) {
 		init(this, name, dom, preserveWhiteSpace);
 	}
 	
+	jst.prototype.render = render;
+		if(Object.defineProperty && window.Document && window.HTMLElement){
+		function observeArray(arr, callback) {
+			for (var i = 0, l = arr.length; i < l; i++) {
+	    		observe(arr[i], callback);
+	  		}
+			if(arr.isObservable){
+				arr.isObservable = true;
+				var oam = ['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse'];
+				var arrayProto = Array.prototype;
+			 	var hackProto = Object.create(Array.prototype);
+			  	oam.forEach(function(method){
+			    	Object.defineProperty(hackProto, method, {
+			    		writable: true,
+			    		enumerable: true,
+			   			configurable: true,
+						value: function() {
+							var me = this;
+							//TODO: observe item
+							var result = arrayProto[method].apply(me, Array.prototype.slice.call(arguments));
+							callback();
+							return  result;
+			      		}
+			    	})
+			  	});
+			  	arr.item = function(i, v){
+			  		if(arr[i] != v){
+			  			observe(v, callback);
+						arr[i] = v;
+						callback();
+			  		}
+			  	};
+				arr.__proto__ = hackProto;
+			}
+		}
+		
+		var observe_exceptions = [Document, HTMLElement, Event, Window, Navigator, Screen, History, Location, RegExp];
+		function observeProperty(obj, k, callback) {
+			var old = obj[k];
+			if(observe_exceptions.find(function(e){return old instanceof e}) == undefined){
+				Object.defineProperty(obj, k, {
+				    enumerable: true,
+				    configurable: true,
+				    get: function() {
+				     	return old;
+				    },
+				    set: function(now) {
+				      	if(now !== old) {
+				        	old = now;
+				        	observe(old, callback);
+							callback();
+				      	}
+				    }
+				});
+				observe(old, callback);
+			}
+		}
+		
+		function observe(obj, callback) {
+			if(Object.prototype.toString.call(obj) === '[object Array]') {
+	      		observeArray(obj, callback);
+	    	} else if (obj.toString() === '[object Object]') {
+	      		Object.keys(obj).forEach(function(key){
+	      			if(typeof(obj[key]) != "function"){
+		    			observeProperty(obj, key, callback);
+	      			}
+	  			});
+	    	}
+		}
+		
+		function watch(data){
+			this.data = data;
+			$jst = this;
+			callback = function(){
+				if(!$jst.dirty){
+					$jst.dirty = true;
+					setTimeout(function(){
+						$jst.render(data);		
+					}, 100);
+				}
+			}
+			observe(data, callback);
+	 	}
+		jst.prototype.watch = watch;
+	}
+		
 	jst.set_data = function(node, name, value){
 		node["@" + name] = value;
 	}
@@ -593,27 +622,36 @@
 			return node;
 		},
 		"create_node" : function(seq){
-			$emptyNode.innerHTML = $jst.nodes[seq].dom.outerHTML;
-			return $emptyNode.firstChild;
+			return $jst.nodes[seq].dom.cloneNode(true);
 		},
 		"comment_inner" : function(node, seq){
 			if(node.nodeType == 1 && node.getAttribute($jst.id) == seq){
 				if(!(node.childNodes.length==1 && node.firstChild.nodeType==8 && node.firstChild.data == "jst-seq="+ seq)){
-					node.innerHTML = "<!--jst-seq="+seq+"-->";
+					while(node.hasChildNodes()){node.removeChild(node.firstChild);}
+					node.appendChild(document.createComment("jst-seq="+seq));
 				}
 			}
 			return node;
-		},
-		"ensure_inner" : function(node, seq){
-			$ctx.lastCtl = null;
-			if(node.nodeType == 1 && node.getAttribute($jst.id) == seq){
-				if(node.childNodes.length==1 && node.firstChild.nodeType==8 && node.firstChild.data == "jst-seq="+ seq){
-					node.innerHTML = $jst.nodes[seq].dom.innerHTML;
-				}
-				return node;
+		}, 
+		"clone_child"  : function(node, dom){
+			var nxt, n = dom.firstChild;
+			while(node.hasChildNodes()){node.removeChild(node.firstChild);}
+			while(n){
+				nxt = n.nextSibling;
+				node.appendChild(n.cloneNode(true));
+				n = nxt;
 			}
-			return null;
 		},
+//		"ensure_inner" : function(node, seq){
+//			$ctx.lastCtl = null;
+//			if(node.nodeType == 1 && node.getAttribute($jst.id) == seq){
+//				if(node.childNodes.length==1 && node.firstChild.nodeType==8 && node.firstChild.data == "jst-seq="+ seq){
+//					clone_child(node, $jst.nodes[seq].dom);
+//				}
+//				return node;
+//			}
+//			return null;
+//		},
 		"ensure_node" : function(node, seq){
 			$ctx.lastCtl = null;
 			if(node.nodeType == 8 && node.data == $jst.id+"="+seq){
@@ -623,7 +661,7 @@
 			}
 			if(node.nodeType == 1 && node.getAttribute($jst.id) == seq){
 				if(node.childNodes.length==1 && node.firstChild.nodeType==8 && node.firstChild.data == "jst-seq="+ seq){
-					node.innerHTML = $jst.nodes[seq].dom.innerHTML;
+					clone_child(node, $jst.nodes[seq].dom);
 				}
 				return node;
 			}
@@ -670,16 +708,18 @@
 					node.setAttribute(name, value);
 				}
 			}
-			if(name == "value" && tagName == "input") {
+			if(name.toLocaleLowerCase() == "class") {
+				node.className= value;
+			}
+			if(name.toLocaleLowerCase() == "style") {
+				node.style.cssText = value;
+			}
+			if(name.toLocaleLowerCase() == "value" && tagName == "input") {
 				node.value = value;
 			}
 		},
 		"set_data" : jst.set_data
 	};
-	
-	jst.prototype.render = render;
-	jst.prototype.watch = watch;
-	
 	
 	jst.prefix = jst_attr_prefix;
 
