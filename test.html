@@ -3,105 +3,21 @@
 	<head>
 		<meta charset="utf-8" />
 		<title></title>
-		<script src="jst.js" type="application/javascript"></script>
 		<style>
-			div.test {
-				border: 1px solid gray;
-			}
-			
 		</style>
 	</head>
 	<body>
-		<div style="display:none">
-			<div class="test" jst-skip jst-html="hello" add-on="{{test}}">hello {{my}}world</div>
-			<div>***test compile function***</div>
-			<div>[jst-skip]</div>
-			<div>[jst-filter]</div>
-			<div class="test" jst-filter="{{false}}">{{show}}</div>
-			<div>[jst-begin/jst-end]</div>
-			<div class="test" jst-begin="{{alert('0')}}" jst-end="{{alert(count)}}">{{count}}</div>
-			<input id="t" type="text" checked="{{show}}" jst-bind="{{count}}">
-			bind: x.count,input or x.count, change
-			<div class="aaa{{show}}bbb" jst-html="{{'a:' + ttt}}"></div>
-			<div jst-text="{{'b:' + ttt}}"></div>
-			<div>
-				<div jst-if="{{show}}">
-					{{show}}
-					<div jst-repeat="{{i=0; i < count; ++i}}" >
-						{{i}}
-					</div>
-				</div>
-			</div>
-			<div>aaa</div>
-			
-						aa:[{{show}}]
-			<img jst-src="{{'test.png'}}"/>
-			<div class="test"
-				jst-begin="{{console.log('begin')}}" 
-				jst-if="{{true}}" 
-				jst-repeat="{{ii=0; ii < count; ++ ii}}"
-				jst-filter="{{ii %2 == 0}}"
-				jst-item-begin="{{console.log('item-begin')}}"
-				jst-style="background:{{show? 'red' : 'yellow'}}"
-				others="background:{{show? 'red' : 'yellow'}};hi"
-				jst-call="{{console.log('call')}}"
-				jst-recursive="{{true}}"
-				jst-item-end="{{console.log('item-end')}}"
-				jst-end="{{console.log('end')}}">
-				
-			</div>	
-			
-		</div>
-		<button onclick="test1()">start render</button>
-		<button onclick="test2()">render1 10000 nodes 1</button>
-		<button onclick="test3()">render2 10000 nodes 2</button>
-		jst-text="--[{{text}}]--" 
-		<div id="test" >
-			aa:[{{show}}]
-			<img jst-src="{{'test.png'}}"/>
-			<input type="text" jst-control="{{'jst.ui.input'}}" jst-bind-value-object="{{$data}}" jst-bind-value-key="{{'name'}}" jst-bind-prop="{{x}}" />
-			<div class="test"
-				jst-repeat="{{i=0; i < count; ++ i}}">
-				aa:[{{show}}]
-			<img jst-src="{{'test.png'}}"/>
-			</div>			
-			
-		</div>
-					
-		<div id="output">
-			
-			
-		</div>
-
+		<input jst-if="pp" id="target" jst-value="{{aaa}}">
+		<div id="result"></div>
 	</body>
 	<script>
-
-	var nnn = new jst("test", document.getElementById('test'));
-	
-	var node = document.getElementById('test');
-	//jst.node.data(node, "aaa", "ooo");
-	//node.parentElement.innerHTML="";
-	function test1(){
-		nnn.render(document.getElementById('output'), {
-			text: "<b>line with \ttab & b tag  2   3    4     5</b>",
-			show: true,
-			count: 10,
-			data: [1,2,3,4,5]
-		}, true);
-	}
-	function test2(){
-		nnn.render(document.getElementById('output'), {
-			text: "<b>line with \ttab & c tag</b>",
-			show: true,
-			count: 10000
-		}, false);
-	}
-	function test3(){
-		nnn.render(document.getElementById('output'), {
-			text: "<b>line with \ttab & b tag</b>",
-			show: true,
-			count: 10000
-		}, false);
-	}
+		var out = document.getElementById("target");
+		var t = "";
+		for(var i =0; i < out.attributes.length; ++i){
+			t = t + out.attributes[i].nodeName;
+			t = t + "," +  out.attributes[i].nodeValue;
+			t = t + "," + out.attributes[i].specified + "\r\n";
+		}
+		document.getElementById("result").innerText = t;
 	</script>
 </html>

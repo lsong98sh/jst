@@ -16,30 +16,30 @@
 			<button onclick="test1()">test#1</button>
 			<button onclick="test2()">test#2</button>
 			<div>
-				<div class="tag" jst-repeat="{{x=0;x < names.length; ++ x}}"><span jst-text="{{names[x].name}}"></span></div>
+				<div class="tag" jst-repeat="x=0;x < names.length; ++x" jst-text="{{names[x].name}}"></div>
 			</div>
 		</div>
 	<script>
 		var names = [];
 		var app = document.getElementById("app");
-		var jstObj = new jst("myApp", app, true);
+		var jstObj = new jst(app, app);
 		for(var i=0; i < 40000; ++ i){
 			names[i] = {name: "name@"+i};
 		} 
-		jstObj.render(app, {
+		jstObj.render({
 				names : []
-		}, true);
+		});
 		var test1 = function () {
-      		jstObj.render(app, {
+      		jstObj.render({
 				names : names
-			}, false);
+			});
     	}
    		var test2 = function () {
       		names[0].name="hello";
 		    names[19999].name="world";
-		    jstObj.render(app, {
+		    jstObj.render({
 				names : names
-			}, false);
+			});
     	} 
 	</script>
 

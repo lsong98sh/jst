@@ -2,8 +2,10 @@
 	<head>
 		<meta charset="utf-8" />
 		<script src="3party/jquery-1.11.3.js"></script>
+		<script src="3party/json2.js"></script>
 		<script src="3party/jsplus.js"></script>
 		<script src="jst.js"></script>
+
 		
 		<style>
 			.sample {
@@ -55,7 +57,7 @@
 		Js:
 			var template = document.getElementById("template"); //template 
 			var target = document.getElementById("output");     //render target
-			var j = new jst(template, target, false);           //create and compile template
+			var j = new jst(template, target);                  //create and compile template
 			j.render({name: 'joe', age: 10});                   //render
 			
 		Output html:
@@ -109,10 +111,12 @@
 
 	API document:
 		constructor:
-			jst(name, dom, preserveWhiteSpace);
+			jst(name, dom, options);
 				name: unique name of the template
 				dom: dom object / id of dom object / template string 
-				preserveWhiteSpace: trim textnode. default: false.
+				options:
+					preserveWhiteSpace: trim textnode. default: false.
+					wrapText: wrap textnode of {{...}} with span tag. default: false
 				
 		instance method:
 			render(data, refresh);
@@ -148,29 +152,46 @@
 		jst-html                : Set the innerHTML property value to the result of the expression
 		jst-text                : Set the innerText property value to the result of the expression
 		jst-bind                : Store a data binding (obj,key) to the node. 
-		jst-data-*              : Store data to dom object, using name after 'jst-data-'.
-		jst* or *				: other attributes
+		jst-set-*               : Store data to dom object, using name after 'jst-data-'. 
+		                        : *Using $ctl["@" + key] = value, can be replaced by using jquery.data.
+		jst-* or *              : other attributes. eg. jst-value, jst-style, jst-class, jst-data-property, etc.
+		jst-on*                 : Bind event handler.(see detail on how to)
 		jst-call                : Execute javascript functions before processing it's child nodes
 		jst-purge               : Clean child nodes when the expression is valued true
 		jst-recursive           : Skip the processing of the child nodes when the expression is valued false
 		jst-item-end            : Call javascript functions after output the node and it's child nodes. used with jst-repeat only
 		jst-end                 : Call javascript functions  after processing the node and it's child nodes
 
-		*do not use jst-repeat and jst-loop in the same node
-		*jst-text will over-write the output of jst-html
+		*jst-html is superior to jst-text
 
 	Change the way of data binding.
 		the jst-bind and jst-data-* use $ctl[name] = value to store the data to dom
-		to change the way of it, eg, using jquery, override the get_data and set_data stock functions before render.
+		to change the way of it, eg, using jquery, override the get_data and set_data functions before render.
 		
-			jst.stock_functions["set_data"] = function(node, name, value){
+			jst.set_data = function(node, name, value){
 				$(node).data(name, value);
 			}
 			
-			jst.stock_functions["get_data"] = function(node, name){
+			jst.get_data = function(node, name){
 				return $(node).data(name);
 			}
 			
+	About jst-on*
+		In normal html dom, the value of onXX is something like onclick="alert('hello world')"
+		The value of jst-on* should be a full function expression. eg. jst-onclick="function(){alert('hello world'}"
+		But using a variable defined in the repeat, call, begin, end will cause unpredictable result.
+		eg. 
+			&lt;button jst-repeat="var i=0; i < 10; ++i" jst-onclick="function(){alert('hello world:'+i)}" &gt;test{{i}}&lt;/button&gt;
+			each button click will alert the same message of 'hello world:10' . 
+			In order to solve this problem, you should use an anonymous inline function.
+			&lt;button jst-repeat="var i=0; i < 10; ++i" 
+				       jst-onclick="(function(i){return function(){alert('hello world:'+i)}})(i)" &gt;test{{i}}&lt;/button&gt;
+			
+			an other way to solve this problem, store the value of i to the node using jst-set-idx="i"
+			jst-onclick="function(){alert('hello world:'+jst.get_data(this, 'idx'))}"
+			
+			see the 'event sample' for more other solutions.
+
 	Pre-defined varibles for template expression:
 		$jst    : the jst class object
 		$target : the render target
@@ -438,6 +459,69 @@
 				};
 			</script>
 		</div>	
+		<div name="test" class="sample">
+			<h1 class="title">event sample</h1>
+			<script type="text/template" name="html">
+				<button  jst-onclick="function(){alert('ok')}">ok</button>
+		
+				click the button to see the result<br><br>
+				simple: 
+					<button  jst-repeat="var i=0; i < 3; ++ i" 
+						jst-onclick="function(){alert('hello:'+ name + i)}" 
+						jst-item-begin="name = 'joe' + i">showme{{i}}</button>(always the same message!)<br><br>
+				
+				using set data/attr:
+					<button  jst-repeat="var i=0; i < 3; ++ i" 
+						jst-set-idx="i" 
+						name = "{{name}}"
+						jst-onclick="function(){alert('hello:'+ name + ',' + this.getAttribute('name') + jst.get_data(this, 'idx'))}" 
+						jst-item-begin="name = 'joe' + i">showme{{i}}</button>(using name will show the last value)<br><br>
+				
+				using anonimous function: 
+					<button  jst-repeat="var i=0; i < 3; ++ i" 
+						jst-onclick="(function(i){return function(){alert('hello:'+ name + i)}})(i)" 
+						jst-item-begin="name = 'joe' + i">showme{{i}}</button>(name is missing, always show the last value of name)<br><br>
+				
+				using anonimous function(add 'name'): 
+					<button  jst-repeat="var i=0; i < 3; ++ i" 
+						jst-onclick="(function(name, i){return function(){alert('hello:'+ name + i)}})(name, i)" 
+						jst-item-begin="name = 'joe' + i">showme{{i}}</button><br><br>
+					
+				recomended: 
+					<button  jst-repeat="var i=0; i < 3; ++ i" 
+						data-idx="{{i}}" 
+						data-name = "{{name}}"
+						jst-onclick="showme" 
+						jst-item-begin="name = 'joe' + i">showme{{i}}</button><br><br>
+
+				conclusion: declare all the variables used in the event handler as the parameter of anonimous function. 
+			</script>
+			<script type="text/template" name="data">
+				{
+					name: "Joe",
+					showme: function(){
+						var name = this.getAttribute("data-name");
+						var idx = this.getAttribute("data-idx");
+						alert(name + "," + idx);
+					}
+				};
+			</script>
+		</div>			
+		<div name="test" class="sample">
+			<h1 class="title">Bidirectional binding binding(IE9+)</h1>
+			<script type="text/template" name="html">
+				name: <input type="text" value="{{name}}" jst-bind="@name" jst-oninput="(function(d){return function(){d.name=this.value;console.log(d)}})($data)"><br> hello {{name}}
+				<div jst-begin="$jst.watch($data);">only for sample. use with js.</div>
+			</script>
+			<script type="text/template" name="data">
+				{
+					name: "Joe"
+				};
+			</script>
+		</div>	
+			
+		
+		
 	</body>	
 	<script>
 		function trim(t){
@@ -477,9 +561,9 @@
 				
 				var d = (new Function('return ' + data.replace(/^\n/g, "")+";"))();
 				var o = $(this).find("[name=display]");
-				var t = new jst(html, o[0], true);
+				var t = new jst(html, o[0]);
 				t.render(d);
-
+				
 				var o = $(this).find("[name=output]");
 				o.html(html_encode($(this).find("[name=display]").html()));
 				
