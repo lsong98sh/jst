@@ -4,7 +4,7 @@
 		<script src="3party/jquery-1.11.3.js"></script>
 		<script src="3party/json2.js"></script>
 		<script src="3party/jsplus.js"></script>
-		<script src="jst.js"></script>
+		<script src="jst-core/jst.js"></script>
 
 		
 		<style>
@@ -152,7 +152,7 @@
 		jst-html                : Set the innerHTML property value to the result of the expression
 		jst-text                : Set the innerText property value to the result of the expression
 		jst-bind                : Store a data binding (obj,key) to the node. 
-		jst-set-*               : Store data to dom object, using name after 'jst-data-'. 
+		jst-set-*               : Store data to dom object, using name after 'jst-set-'. 
 		                        : *Using $ctl["@" + key] = value, can be replaced by using jquery.data.
 		jst-* or *              : other attributes. eg. jst-value, jst-style, jst-class, jst-data-property, etc.
 		jst-on*                 : Bind event handler.(see detail on how to)

@@ -71,10 +71,10 @@
 					return directives[n];
 				}
 			},
-			insert : function(directive, name){
+			insert : function(new_directive, name){
 				var n = directive.indexOf(name);
 				if(n >= 0){
-					directives.splice(n, 0, directive);
+					directives.splice(n, 0, new_directive);
 				}
 			},
 			remove: function(name){
@@ -411,7 +411,7 @@
 			}
 			if(node.nodeType == 8) {
 				result = node.nextSibling;
-				node.parentElement.removeChild(node);
+				node.parentNode.removeChild(node);
 				node = result;
 				continue;
 			}
