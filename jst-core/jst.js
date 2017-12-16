@@ -1,4 +1,3 @@
-"use strict";
 (function(){
 	var REGEX_EXPRESSION = /\{\{(.+?)\}\}/g,
 		directives = [], stock_functions = {},
@@ -33,7 +32,7 @@
 			},
 			as_value : function(s){
 				if(expression.test("var x=?;",s)){
-					return "function(){try{return "+ s +"; }catch(err){return ''}}()";
+					return "function(){try{return "+ s +"=== undefined? '' : " + s + "; }catch(err){return ''}}()";
 				}
 			},
 			as_string : function(expr){
@@ -398,7 +397,9 @@
 						}
 						return s;
 					}, function(s){
-						elm.appendChild(document.createTextNode(s));
+						var txt = document.createElement("div");
+						txt.innerHTML = s;
+						elm.appendChild(document.createTextNode(txt.innerText));
 						return s;
 					})			
 					while(elm.childNodes.length > 0) {
@@ -517,9 +518,11 @@
 		$jst.nodes[0] = {dom : elm};
 		$jst.target = typeof(target)=="string"? document.getElementById(target) : target;
 		$jst.rendered = false;
-		console.log($jst);
-		console.log(body);
+		//console.log($jst);
+		//console.log(body);
 	}
+	
+	//var defered = window.Promise.when? true : false; 
 	
 	function render(data, refresh) {
 		this.dirty = false;
@@ -534,91 +537,24 @@
 				n = nxt;
 			}
 			this.rendered = true;
-		}	
+		}
+		
+		//this.promises = [];
+		
 		this.proc(this, this.target, data);
+		
+		//if(defered){
+		//	return Promise.when(this.promises);
+		//}else{
+		//	return Promise.all(this.promises);
+		//}
 	}
+
 	var jst = function(name, dom, options) {
 		init(this, name, dom, options);
 	}
 	
 	jst.prototype.render = render;
-	if(Object.defineProperty && window.EventTarget){
-		var observe_exceptions = [EventTarget, Navigator, Screen, History, Location, RegExp];
-		function observeProperty(obj, k, callback) {
-			var old = obj[k];
-			if(observe_exceptions.find(function(e){return old instanceof e}) == undefined){
-				Object.defineProperty(obj, k, {
-				    enumerable: true,
-				    configurable: true,
-				    get: function() {
-				     	return old;
-				    },
-				    set: function(now) {
-				      	if(now !== old) {
-				        	old = now;
-				        	observe(old, callback);
-							callback();
-				      	}
-				    }
-				});
-				observe(old, callback);
-			}
-		}
-		function observeArray(arr, callback) {
-			for (var i = 0, l = arr.length; i < l; i++) {
-	    		observe(arr[i], callback);
-	  		}
-			if(arr.isObservable){
-				arr.isObservable = true;
-				var oam = ['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse'];
-				var arrayProto = Array.prototype;
-			 	var hackProto = Object.create(Array.prototype);
-			  	oam.forEach(function(method){
-			    	hackProto.method = function() {
-							var me = this;
-							//TODO: observe item
-							var result = arrayProto[method].apply(me, Array.prototype.slice.call(arguments));
-							callback();
-							return  result;
-			      }
-			  	});
-			  	arr.item = function(i, v){
-			  		if(arr[i] != v){
-			  			observe(v, callback);
-						arr[i] = v;
-						callback();
-			  		}
-			  	};
-				arr.__proto__ = hackProto;
-			}
-		}
-		function observe(obj, callback) {
-			if(Object.prototype.toString.call(obj) === '[object Array]') {
-	      		observeArray(obj, callback);
-	    	} else if (obj.toString() === '[object Object]') {
-	      		Object.keys(obj).forEach(function(key){
-	      			if(typeof(obj[key]) != "function"){
-		    			observeProperty(obj, key, callback);
-	      			}
-	  			});
-	    	}
-		}
-		
-		function watch(data){
-			this.data = data;
-			var $jst = this;
-			var callback = function(){
-				if(!$jst.dirty){
-					$jst.dirty = true;
-					setTimeout(function(){
-						$jst.render(data);		
-					}, 30);
-				}
-			}
-			observe(data, callback);
-	 	}
-		jst.prototype.watch = watch;
-	}
 		
 	jst.set_data = function(node, name, value){
 		node["@" + name] = value;
