@@ -32,12 +32,17 @@
 			},
 			as_value : function(s){
 				if(expression.test("var x=?;",s)){
+					return "function(){try{return "+ s + "; }catch(err){return undefined}}()";
+				}
+			},
+			as_text : function(s){
+				if(expression.test("var x=?;",s)){
 					return "function(){try{return "+ s +"=== undefined? '' : " + s + "; }catch(err){return ''}}()";
 				}
 			},
 			as_string : function(expr){
 				return expression.split(expr, function(s){
-					return expression.as_value(s);
+					return expression.as_text(s);
 				}, function(s){
 					return "\"" + strconv(s, str_escape_ary) + "\"";
 				}).join("+");
@@ -226,6 +231,24 @@
 			return true;
 		}		
 	});	
+	
+	directives.push({
+		name: "var-*",
+		compile: function($jst, node, result, seq) {
+			var i, attrs=get_attribute_names(node), nodeName, nodeValue;
+			for(i=0; i < attrs.length; ++i){
+				nodeName = attrs[i];
+				if(nodeName.indexOf(jst_attr_prefix + "var-") == 0){
+					nodeValue = node.getAttribute(nodeName);
+					if(expression.test("var x=?;", nodeValue)){
+						result.code += "var " + nodeName.substr(jst_attr_prefix.length+this.name.length-1) + "= " +  expression.as_value(nodeValue) + ";\n";
+						node.removeAttribute(nodeName);
+					}
+				}
+			}
+			return true;
+		}
+	});
 
 	directives.push({
 		name: "html",
@@ -363,7 +386,24 @@
 			return true;
 		}
 	});
-	
+	directives.push({
+		name: "include",
+		compile: function($jst, node, result, seq) {
+			return true;
+		},
+		cleanup: function($ctx, node, result, seq) {
+			var nodeName = jst.prefix + this.name;
+			var nodeValue = node.getAttribute(nodeName);
+			var dataValue = node.getAttribute(nodeName+"-data");
+			
+			if(nodeValue != null && dataValue != null){
+				result.code = "$ctx.include($ctl," + nodeValue + "," + dataValue +");\r\n";
+				node.removeAttribute(nodeName);
+				node.removeAttribute(nodeName+"-data");
+			}
+		}
+	});	
+
 	directives.push({
 		name: "item-end"
 	});
@@ -387,11 +427,11 @@
 							++ $jst.seq;
 							seq = $jst.seq;
 						if(options.wrapText){
-							code += "$ctl = $ctx.push_node($ctl, " + $jst.seq + ");$ctx.recursive=false;$ctl.innerText=" + expression.as_value(s) + ";$ctl = $ctx.pop_node($ctl);\n";
+							code += "$ctl = $ctx.push_node($ctl, " + $jst.seq + ");$ctx.recursive=false;$ctl.innerText=" + expression.as_text(s) + ";$ctl = $ctx.pop_node($ctl);\n";
 							span = elm.appendChild(document.createElement("span"));
 							span.setAttribute($jst.id, seq);
 						}else{
-							code += "$ctl = $ctx.push_node($ctl, " + $jst.seq + ");$ctx.recursive=false;$ctl=$ctx.set_text($ctl, " + seq + ", " + expression.as_value(s) + ");$ctl = $ctx.pop_node($ctl);\n";
+							code += "$ctl = $ctx.push_node($ctl, " + $jst.seq + ");$ctx.recursive=false;$ctl=$ctx.set_text($ctl, " + seq + ", " + expression.as_text(s) + ");$ctl = $ctx.pop_node($ctl);\n";
 							elm.appendChild(document.createComment($jst.id + "=" + seq));
 							elm.appendChild(document.createComment("text:end"));
 						}
@@ -738,7 +778,18 @@
 				node.value = value;
 			}
 		},
-		"set_data" : jst.set_data
+		"set_data" : jst.set_data,
+		"include" : function(ctl, name, data){
+			var tmpl = jst.get_data(ctl, "jst-include-tmpl");
+			var refresh = false;
+			if(tmpl == null || st.get_data(ctl, "jst-include-name") != name){
+				tmpl = new jst(name, ctl);
+				jst.set_data(ctl, "jst-include-tmpl", tmpl);
+				jst.set_data(ctl, "jst-include-name", name);
+				refresh = true;
+			}
+			tmpl.render(data, refresh);
+		}
 	};
 	
 	jst.prefix = jst_attr_prefix;

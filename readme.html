@@ -5,6 +5,7 @@
 		<script src="3party/json2.js"></script>
 		<script src="3party/jsplus.js"></script>
 		<script src="jst-core/jst.js"></script>
+		<script src="jst-core/observe.js"></script>
 
 		
 		<style>
@@ -149,6 +150,7 @@
 		jst-repeat              : Repeat the node itself 
 		jst-filter              : Filter condition for jst-repeat
 		jst-item-begin          : Call javascript functions when output the node. used with jst-repeat only.
+		jst-var-*               : Safely set a variable to a var. To avoid undefined error.see tree demo.
 		jst-html                : Set the innerHTML property value to the result of the expression
 		jst-text                : Set the innerText property value to the result of the expression
 		jst-bind                : Store a data binding (obj,key) to the node. 
@@ -159,6 +161,7 @@
 		jst-call                : Execute javascript functions before processing it's child nodes
 		jst-purge               : Clean child nodes when the expression is valued true
 		jst-recursive           : Skip the processing of the child nodes when the expression is valued false
+		jst-include             : include other template and render into the content of the node. see tree demo for recursive include.
 		jst-item-end            : Call javascript functions after output the node and it's child nodes. used with jst-repeat only
 		jst-end                 : Call javascript functions  after processing the node and it's child nodes
 
@@ -519,8 +522,57 @@
 				};
 			</script>
 		</div>	
+		<div name="test" class="sample" id="t">
+			<h1 class="title">Tree Demo</h1>
+			<script type="text/template" name="html">
+				<ul>
+					<li jst-include="'treenode'"  jst-include-data="tree"></li>	
+				</ul>
+			</script>
+			<script type="text/template" name="data">
+				{
+					tree: {
+						name: 'aa',				
+						children: [
+						    {
+						    	name: "11"
+						    },
+						    {
+						    	name: "22",
+						    	children: [
+							    	{
+							    		name: "22-3",
+								    	children: [
+								    		{
+								    			name: "22-4"
+								    		}
+								    	]
+							    	},
+							    	{
+							    		name: "22-32",
+								    	children: [
+								    		{
+								    			name: "22-42"
+								    		}
+								    	]
+							    	}
+						    	
+						    	]
+						    }
+						]
+					}	
+				}
+			</script>
+
+		</div>				
+<div id="treenode" style="display:none">
+	<a href="#" jst-var-subs="children">{{name}}</a>
+	<ul jst-if="subs && subs.length &gt; 0" >
+		<li jst-repeat="var i =0; i < children.length; ++ i" jst-include="'treenode'" jst-include-data="children[i]">
 			
-		
+		</li>
+	</ul>
+</div>
 		
 	</body>	
 	<script>
@@ -568,6 +620,12 @@
 				o.html(html_encode($(this).find("[name=display]").html()));
 				
 			});
+			var p = $("<fieldset></fieldset>");
+			var t = $("<pre></pre>");
+			t.text($("#treenode").prop("outerHTML"));
+			p.append("<legend>treenode</legend>");
+			p.append(t);
+			$("#t").append(p);
 		});
 
 	</script>
