@@ -782,7 +782,7 @@
 		"include" : function(ctl, name, data){
 			var tmpl = jst.get_data(ctl, "jst-include-tmpl");
 			var refresh = false;
-			if(tmpl == null || st.get_data(ctl, "jst-include-name") != name){
+			if(tmpl == null || jst.get_data(ctl, "jst-include-name") != name){
 				tmpl = new jst(name, ctl);
 				jst.set_data(ctl, "jst-include-tmpl", tmpl);
 				jst.set_data(ctl, "jst-include-name", name);
