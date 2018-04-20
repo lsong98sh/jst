@@ -148,6 +148,7 @@
 		jst-begin               : Call javascript functions before processing
 		jst-if                  : Output the node when the expression is valued true
 		jst-repeat              : Repeat the node itself 
+		jst-each                : Repeat the node itself, using forEach function. 
 		jst-filter              : Filter condition for jst-repeat
 		jst-item-begin          : Call javascript functions when output the node. used with jst-repeat only.
 		jst-var-*               : Safely set a variable to a var. To avoid undefined error.see tree demo.
@@ -418,6 +419,22 @@
 		</div>	
 		
 		<div name="test" class="sample">
+			<h1 class="title">each</h1>
+			<script type="text/template" name="html">
+				<div>
+					<ul>
+						<li jst-each="(n, i, a):list"><button jst-onclick="alert(i+':'+n)">{{i}}:{{n}}</button></li>
+					</ul>
+				</div>
+			</script>
+			<script type="text/template" name="data">
+				{
+					list: ['a', 'b', 'c', 'd']
+				};
+			</script>
+		</div>			
+		
+		<div name="test" class="sample">
 			<h1 class="title">repeat with output</h1>
 			<script type="text/template" name="html">
 				<div>
@@ -497,7 +514,8 @@
 						jst-onclick="showme" 
 						jst-item-begin="name = 'joe' + i">showme{{i}}</button><br><br>
 
-				conclusion: declare all the variables used in the event handler as the parameter of anonimous function. 
+				conclusion: declare all the variables used in the event handler as the parameter of anonimous function.
+				or use jst-each directive instead. 
 			</script>
 			<script type="text/template" name="data">
 				{

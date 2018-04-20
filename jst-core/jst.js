@@ -217,6 +217,45 @@
 	});	
 	
 	directives.push({
+		name: "each",
+		compile: function($jst, node, result, seq) {
+			var nodeName = jst_attr_prefix + this.name;
+			var nodeValue = node.getAttribute(nodeName);
+			if(nodeValue != null){
+				var parts = nodeValue.split(":");
+				var expr = "("+parts[1]+").forEach(function"+ parts[0]+"{})";
+				if(expression.test(expr)){
+					result.code = "("+parts[1]+").forEach(function"+ parts[0]+"{";
+				}
+				nodeName = jst_attr_prefix + "filter";
+				nodeValue = node.getAttribute(nodeName);
+				if(nodeValue != null){
+					if(expression.test("if(?){}", nodeValue)){
+						result.code += "if(" + nodeValue + ") {";
+					}
+				}
+				result.code += "\n$ctl=$ctx.ensure_node($ctl, "+seq+");\n";
+			}
+			return true;
+		},
+		cleanup: function($ctx, node, result, seq) {
+			var nodeName=jst_attr_prefix + this.name, nodeValue = node.getAttribute(nodeName);
+			if(nodeValue != null){
+				result.code = "\n$ctl = $ctx.next_node($ctl, "+seq+");\n";
+				nodeName = jst_attr_prefix + "filter";
+				nodeValue = node.getAttribute(nodeName);
+				if(nodeValue != null){
+					result.code += "}\n";
+					node.removeAttribute(nodeName);	
+				}
+				result.code += "});\n";
+				result.code += "$ctl = $ctx.cleanup_node($ctl, "+seq+");\n";
+				node.removeAttribute(jst_attr_prefix + this.name);	
+			}
+		}
+	});	
+	
+	directives.push({
 		name: "filter"	
 	});
 	
@@ -323,7 +362,12 @@
 					expr = strconv("with($data) {"+nodeValue+" }", str_escape_ary);
 					//result.code += "$ctl['onclick_fnc'] = new Function('$data', \"" + expr + "\".replace(/\{\{(.+?)\}\}/g, function(){return eval(arguments[1]);}));\n";
 					//result.code += "$ctl[\""+ nodeName.substr(jst_attr_prefix.length) + "\"] = function() { event.target['onclick_fnc']($data); };\n";
-					result.code += "$ctl[\""+ nodeName.substr(jst_attr_prefix.length) + "\"] = "+ nodeValue +";\n";
+					nodeValue = nodeValue.replace(/(^\s*)|(\s*$)/g, "");
+					if(nodeValue.indexOf("function") == 0 || nodeValue.indexOf("(function") == 0){
+						result.code += "$ctl[\""+ nodeName.substr(jst_attr_prefix.length) + "\"] = "+ nodeValue +";\n";
+					}else{
+						result.code += "$ctl[\""+ nodeName.substr(jst_attr_prefix.length) + "\"] = function(){"+ nodeValue +"};\n";
+					}
 					node.removeAttribute(nodeName);
 				}
 			}
@@ -774,6 +818,9 @@
 			if(name.toLocaleLowerCase() == "style") {
 				node.style.cssText = value;
 			}
+			if(name.toLocaleLowerCase() == "checked" && tagName == "input") {
+				node.checked = value;
+			}			
 			if(name.toLocaleLowerCase() == "value" && tagName == "input") {
 				node.value = value;
 			}
