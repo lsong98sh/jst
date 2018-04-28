@@ -407,6 +407,7 @@
 			var nodeName = jst_attr_prefix + this.name;
 			var nodeValue = node.getAttribute(nodeName);
 			if(nodeValue != null){
+				node.removeAttribute(nodeName);
 				if(expression.test("if(?){}", nodeValue)){
 					result.code = "$ctx.recursive=" + nodeValue + ";if($ctx.recursive)"; 
 				}
@@ -602,8 +603,6 @@
 		$jst.nodes[0] = {dom : elm};
 		$jst.target = typeof(target)=="string"? document.getElementById(target) : target;
 		$jst.rendered = false;
-		//console.log($jst);
-		//console.log(body);
 	}
 	
 	//var defered = window.Promise.when? true : false; 
@@ -611,27 +610,14 @@
 	function render(data, refresh) {
 		this.dirty = false;
 		if(refresh || this.rendered == false) {
-			while(this.target.hasChildNodes()) {  
-        		this.target.removeChild(this.target.firstChild);  
-    		} 		
 			var n = this.nodes[0].dom.firstChild;
 			while(n){
-				var nxt = n.nextSibling;
 				this.target.appendChild(n.cloneNode(true));
-				n = nxt;
+				n = n.nextSibling;;
 			}
 			this.rendered = true;
 		}
-		
-		//this.promises = [];
-		
 		this.proc(this, this.target, data);
-		
-		//if(defered){
-		//	return Promise.when(this.promises);
-		//}else{
-		//	return Promise.all(this.promises);
-		//}
 	}
 
 	var jst = function(name, dom, options) {
@@ -826,6 +812,7 @@
 			}
 		},
 		"set_data" : jst.set_data,
+		"get_data" : jst.get_data,
 		"include" : function(ctl, name, data){
 			var tmpl = jst.get_data(ctl, "jst-include-tmpl");
 			var refresh = false;
