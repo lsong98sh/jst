@@ -610,6 +610,7 @@
 	function render(data, refresh) {
 		this.dirty = false;
 		if(refresh || this.rendered == false) {
+			this.target.innerHTML="";
 			var n = this.nodes[0].dom.firstChild;
 			while(n){
 				this.target.appendChild(n.cloneNode(true));

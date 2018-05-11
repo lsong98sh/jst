@@ -1,0 +1,155 @@
+<html><head>
+	<meta charset="utf-8"> 
+	<link rel="stylesheet" href="http://cdn.static.runoob.com/libs/bootstrap/3.3.7/css/bootstrap.min.css">
+	<script src="http://cdn.static.runoob.com/libs/jquery/2.1.1/jquery.min.js"></script>
+	<script src="http://cdn.static.runoob.com/libs/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+	<script src="https://cdn.bootcss.com/jqueryui/1.12.1/jquery-ui.js"></script>
+	<link href="https://cdn.bootcss.com/jqueryui/1.12.1/jquery-ui.css" rel="stylesheet">
+	<script src="../jst-core/jst.js"></script>
+</head>
+<body style="padding:10px;">
+	<style>
+		.qui-tree {
+			padding: 0;
+		}
+		.qui-tree, .qui-tree ul, .qui-tree li {
+			list-style-type: none;
+			position:relative;
+		}
+		.qui-tree ul {
+			padding-left: 15px;
+		}
+		.qui-tree .dot{
+			display:inline-block;
+		}
+		.qui-tree .dot:after {
+	    content: "";
+	    display: inline-block;
+	    position: absolute;
+	    top: 0px;
+	    left: 10px;
+	    background-color: red;
+	    width: 8px;
+	    height: 8px;
+	    border-radius: 8px;
+		}
+		
+		.qui-tree li div .action{
+			display: none;
+			float: right;
+		}
+		.qui-tree li div:hover .action{
+			display: block;
+		}
+		
+		.qui-tree .action i{
+			display:inline-block;
+			margin-left:5px;
+		}
+		
+	</style>
+
+	<ul id="treeitem" style="display:none">
+			<li jst-begin="var itm = $data.children || [];console.log(itm)" jst-repeat="var i=0; i < itm.length; ++ i" jst-item-begin="if(itm[i].status == undefined){itm[i].status = true;}" > 
+				<div>
+					<span jst-if="itm[i].type=='item'"><i class="glyphicon glyphicon-cog"></i></span>
+					<span jst-if="itm[i].type=='list'" class="{{itm[i].status? '':'dot'}}"
+						jst-onclick="(function(x, k){return function(){x[k].status = !x[k].status;  var n = $(this).parent().children('ul'); $(this).toggleClass('dot');x[k].status? n.show() : n.hide()}})(itm, i)">
+						<i class="glyphicon glyphicon-th-list"></i>
+					</span>
+					<span jst-if="itm[i].type=='block'" class="{{itm[i].status? '':'dot'}}"
+						jst-onclick="(function(x, k){return function(){x[k].status = !x[k].status;  var n = $(this).parent().children('ul'); $(this).toggleClass('dot');x[k].status? n.show() : n.hide()}})(itm, i)">
+						<i class="glyphicon glyphicon-briefcase"></i>
+					</span>
+					<span style="display:inline-block;margin-left:5px" jst-text="{{itm[i].text}}"></span>
+					<span class="action">
+						<i jst-if="itm[i].type !='item'" class="glyphicon glyphicon-cog" title="增加项目"></i>
+						<i jst-if="itm[i].type !='item'" class="glyphicon glyphicon-th-list" title="增加明细"></i>
+						<i jst-if="itm[i].type !='item'"class="glyphicon glyphicon-briefcase" title="增加分块"></i>
+						<i class="glyphicon glyphicon-wrench"  title="配置"></i>
+						<i class="glyphicon glyphicon-remove" title="删除"></i>
+						
+					</span>
+				</div>
+				<ul jst-if="itm[i].type !='item'" jst-include="'treeitem'"  jst-include-data="itm[i]" jst-style="display:{{itm[i].status? 'block':'none'}}"></ul>	
+			</li>	
+	</ul>
+
+	<div id="treeview" style="display:none">
+		<ul class="qui-tree">
+			<li>
+				<div>
+					<span><i class="glyphicon glyphicon-oil"></i></span>
+					<span  style="display:inline-block;margin-left:5px">数据结构</span>	
+					<span class="action">
+						<i class="glyphicon glyphicon-cog" title="增加项目"></i>
+						<i class="glyphicon glyphicon-th-list" title="增加明细"></i>
+						<i class="glyphicon glyphicon-briefcase" title="增加分块"></i>
+					</span>
+				</div>
+				<ul jst-include="'treeitem'"  jst-include-data="$data"></ul>	
+			</li>	
+		</ul>
+	</div>
+
+	<div id="out" style="width:350px">
+		
+	</div>
+	<button id="refresh">refresh</button>
+</body>
+<script>
+		var out  = document.getElementById("out");
+		var tmpl = document.getElementById("treeview");
+		var t = new jst(tmpl, out);
+		
+		var d = {
+			children : [
+				{
+					text: "姓名",
+					type: "item"
+				},
+				{
+					text: "年龄",
+					type: "item"
+				},
+				{
+					text: "学历",
+					type: "list",
+					children: [
+						{
+							text: "开始日期",
+							type: "item"							
+						},
+						{
+							text: "结束日期",
+							type: "item"							
+						},
+						{
+							text: "学校名称",
+							type: "item"							
+						}
+					]
+				},
+				{
+					text: "其他",
+					type: "block",
+					children: [{
+						text: "血型",
+						type: "item"
+					},{
+							text:"身高",
+							type:"item"
+							
+					}]
+				}
+			]	
+		};
+		
+		$("#refresh").click(function(){
+				d.children.splice(0,1);
+				t.render(d);
+		});
+		
+		t.render(d);
+</script>
+</html>

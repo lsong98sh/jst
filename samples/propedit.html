@@ -1,0 +1,207 @@
+<html><head>
+	<meta charset="utf-8"> 
+	<link rel="stylesheet" href="http://cdn.static.runoob.com/libs/bootstrap/3.3.7/css/bootstrap.min.css">
+	<script src="../jst-core/jst.js"></script>
+</head>
+<body style="padding:10px;">
+	<style>
+		  .pe-table tr {
+		  	border: 1px solid gray;
+		  }
+			.pe-table .pe-table tr {
+				border-top: 0;
+				border-left: 0;
+				border-right: 0;
+			}
+			.pe-table .pe-table tr:last-child{
+				border-bottom: 0;
+			}
+
+			.pe-table td {
+				border-left: 1px solid gray;
+				padding: 5px;
+			}
+
+			.pe-table .pe-table td:first-child {
+				border-left: 0;
+			}
+			
+			.pe-table input {
+				padding: 3px;
+				display: inline-block;
+				width:100%;
+				border: 0;
+				outline: none;
+			}
+
+			.pe-table input:focus {
+				border: 1px solid #eee;
+			}
+			.pe-table input:hover {
+				border: 1px solid #eee;
+				background-color: #effec8;
+			}
+			
+
+	</style>
+	<div id="element" style="display:none">
+		<span jst-begin="console.log($data, $data.key)"></span>
+		<div jst-if="type == 'string'" style="padding: 0 5px"><input type="text" jst-value="{{value}}"  jst-oninput="(function(x, k){return function(){x[k]=this.value;}})($data.data, $data.key)"></div>
+		<div jst-if="type == 'number'" style="padding: 0 5px"><input type="number" jst-value="{{value}}" jst-oninput="(function(x, k){return function(){x[k]=this.value;}})($data.dada, $data.key )"></div>
+		<div jst-if="type == 'object'">
+			<div style="padding:5px;border-bottom:1px solid gray"><span jst-text="{{value}}"></span></div>
+			<div jst-begin="$data.data = value" jst-include="'object'"  jst-include-data="$data"></div>	
+		</div>
+		<div jst-if="type == 'array'">
+			<div style="padding:5px;border-bottom:1px solid gray"><span jst-text="size:{{value.length}}"></span><button>+</button></div>
+			<div jst-begin="item.data = value" jst-include="'array'"  jst-include-data="item"></div>
+		</div>
+	</div>
+	<div id="array" style="display:none">
+		<table border="0" width="100%" class="pe-table" jst-call="var items = $data.data">
+			<tr jst-repeat="var i = 0; i < items.length; ++ i">
+				<td style="background-color: #ddd" ><button>X</button><span jst-text="{{i}}"></span></td>
+				<td style="padding:0" jst-begin="$data.key = i;$data.value = items[i]" jst-include="'element'"  jst-include-data="$data"></td>
+			</tr>
+		</table>	
+	</div>
+	<div id="object" style="display:none">
+		<table border="0" width="100%" class="pe-table" jst-call="var items = $data.data">
+			<tr jst-repeat="var key in properties">
+				<td style="background-color: #ddd" jst-text="{{properties[key].title}}"></td>
+				<td style="padding:0" jst-begin="properties[key].data = items; properties[key].key = key; items[key] = items[key] || defval(properties[key].type); properties[key].value = items[key]" jst-include="'element'"  jst-include-data="properties[key]"></td>
+			</tr>	
+		</table>
+	</div>
+	<div id="tmpl" style="display:none">
+		<div jst-include="'object'"  jst-include-data="$data"></div>	
+		
+	</div>
+	<div id="out" style="width:350px">
+		
+		
+	</div>
+	
+</body>
+<script>
+		function defval(type){
+			if(type == "object") return {};
+			if(type == "array") return [];
+			if(type == "boolean") return false;
+			return null;
+		}
+
+		var out  = document.getElementById("out");
+		var tmpl = document.getElementById("tmpl");
+		var t = new jst(tmpl, out);
+		window.d = {
+				name : "hello",
+				age : 10,
+				
+				skills: ["eng", "jp"],
+				langs : [{
+					name: "英语", level: "四级"
+				},{
+					name: "日语", level: "二级"
+				}],
+				test : [ [1,2], [3,4]],
+				
+			};
+		t.render({
+			data: d,
+			properties :{
+				name : {
+					title: "名称",
+					description: "输入名称",
+					type: "string",
+					validation : {
+						required: true,
+						regexp: "[a-zA-z0-9_]"
+					}
+				},
+				age : {
+					title: "年龄",
+					description: "输入年龄",
+					type: "number"
+				},
+				addr : {
+					title: "地址",
+					description: "输入地址",
+					type: "object",
+					properties :{
+						area : {
+							title:"区域",
+							description: "输入区域",
+							type: "object",
+							properties: {
+								province : {
+									title: "省",
+									description: "输入省份",
+									type: "string"
+								},
+								city : {
+									title: "市",
+									description: "输入市",
+									type: "string"
+								},
+								district : {
+									title: "区",
+									description: "输入区",
+									type: "string"
+								}
+							}
+						},
+						detail : {
+							title: "具体",
+							description: "输入具体地址",
+							type: "string"
+						}
+					}
+				},
+				skills : {
+					title: "能力",
+					description: "输入能力",
+					type: "array",
+					item: {
+						type: "string"
+					}
+					
+				},
+				langs : {
+					title: "语言",
+					description: "输入语言能力",
+					type: "array",
+					item : {
+						type: "object",
+						properties :{
+							name : {
+								title: "语言",
+								description: "输入语言",
+								type: "string"
+							},
+							level : {
+								title: "等级",
+								description: "输入等级",
+								type: "string"
+							}
+						},
+					}
+				},
+				test : {
+					title: "test",
+					description: "test",
+					type: "array",
+					item : {
+						type: "array",
+						item :{
+							title: "num",
+							description: "num",
+							type: "number"
+						}
+					}
+				}
+			}
+	
+		});
+</script>
+</html>
