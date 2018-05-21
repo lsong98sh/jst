@@ -831,6 +831,12 @@
 
 	jst.directive = directive;
 
+  if(window.layui.define){
+  	layui.define(function(exports){
+  		exports('jst', jst);
+  	}); 	
+  }
+
 	if(typeof module === "object" && module && typeof module.exports === "object") {
 		module.exports = jst;
 	} else {
