@@ -350,7 +350,40 @@
 			return true;
 		}
 	});	
-	
+	directives.push({
+		name: "prepend-*",
+		compile: function($jst, node, result, seq) {
+			var i, attrs=get_attribute_names(node), nodeName, nodeValue;
+			for(i=0; i < attrs.length; ++i){
+				nodeName = attrs[i];
+				if(nodeName.indexOf(jst_attr_prefix + "prepend-") == 0){
+					var oname = nodeName.substring(jst_attr_prefix.length+this.name.length-1);
+					node.setAttribute(oname+"-preserved", node.getAttribute(oname));
+					nodeValue = node.getAttribute(nodeName);
+					result.code += "$ctx.set_attribute($ctl, -1, \"" + oname + "\", " + expression.as_string(nodeValue) + ");\n";
+					node.removeAttribute(nodeName);
+				}
+			}
+			return true;
+		}
+	});	
+	directives.push({
+		name: "append-*",
+		compile: function($jst, node, result, seq) {
+			var i, attrs=get_attribute_names(node), nodeName, nodeValue;
+			for(i=0; i < attrs.length; ++i){
+				nodeName = attrs[i];
+				if(nodeName.indexOf(jst_attr_prefix + "append-") == 0){
+					var oname = nodeName.substring(jst_attr_prefix.length+this.name.length-1);
+					node.setAttribute(oname+"-preserved", node.getAttribute(oname));
+					nodeValue = node.getAttribute(nodeName);
+					result.code += "$ctx.set_attribute($ctl, 1, \"" + oname + "\", " + expression.as_string(nodeValue) + ");\n";
+					node.removeAttribute(nodeName);
+				}
+			}
+			return true;
+		}
+	});	
 	directives.push({
 		name: "on*",
 		compile: function($jst, node, result, seq) {
@@ -384,7 +417,7 @@
 				if(directive.processorOf(nodeName) === undefined){
 					nodeValue = "" + node.getAttribute(nodeName);
 					if(nodeValue && nodeValue.match(REGEX_EXPRESSION)){
-						result.code += "$ctx.set_attribute($ctl, \"" + ((nodeName.indexOf(jst_attr_prefix)==0)? nodeName.substr(jst_attr_prefix.length) : nodeName) + "\", " + expression.as_string(nodeValue) + ");\n";
+						result.code += "$ctx.set_attribute($ctl, 0, \"" + ((nodeName.indexOf(jst_attr_prefix)==0)? nodeName.substr(jst_attr_prefix.length) : nodeName) + "\", " + expression.as_string(nodeValue) + ");\n";
 						node.removeAttribute(nodeName);
 					}
 				}
@@ -789,12 +822,23 @@
 			"td": ["nowrap"],
 			"th": ["nowrap"]
 		},
-		"set_attribute" : function(node, name, value){
+		"set_attribute" : function(node, mode, name, value){
 			var tagName = node.nodeName.toLocaleLowerCase();
 			if ($ctx.special_attributes[tagName] &&
 				$ctx.special_attributes[tagName].indexOf(name) >= 0 && (value === false || value === "false" || value === 0)) {
-				node.removeAttribute(name);
+				if(mode == 0){
+					node.removeAttribute(name);	
+				}else{
+					node.setAttribute(name, node.getAttribute(name+"-preserved"));
+				}
+				
 			} else {
+				if(mode == -1){
+					value = value + node.getAttribute(name+"-preserved");
+				}
+				if(mode == 1){
+					value = node.getAttribute(name+"-preserved") + value;
+				}
 				if(node.getAttribute(name) != value) {
 					node.setAttribute(name, value);
 				}
@@ -831,7 +875,7 @@
 
 	jst.directive = directive;
 
-  if(window.layui.define){
+  if(window.layui && window.layui.define){
   	layui.define(function(exports){
   		exports('jst', jst);
   	}); 	

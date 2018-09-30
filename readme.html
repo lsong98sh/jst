@@ -157,6 +157,8 @@
 		jst-bind                : Store a data binding (obj,key) to the node. 
 		jst-set-*               : Store data to dom object, using name after 'jst-set-'. 
 		                        : *Using $ctl["@" + key] = value, can be replaced by using jquery.data.
+		jst-prepend-*           : Prepend value to the value named after 'jst-set-'. 
+		jst-append-*            : Append value to the value named after 'jst-set-'. 
 		jst-* or *              : other attributes. eg. jst-value, jst-style, jst-class, jst-data-property, etc.
 		jst-on*                 : Bind event handler.(see detail on how to)
 		jst-call                : Execute javascript functions before processing it's child nodes
@@ -212,7 +214,7 @@
 		No additional rules or syntax!
 
 	Advanced usage:
-		for more advanced usage, see the samples in the sample folder.(under construction)
+		for more advanced usage, see the samples in the samples folder.(under construction)
 		1) user defined directive.
 		2) use with jquery-ui
 		3) use with dojo
@@ -345,6 +347,12 @@
 				</div>
 				<div>
 					<div jst-style="width:80px;border:{{width}}px solid black;margin:{{width}};padding:{{width}}px;background-color:{{color}}">test</div>
+				</div>
+				<div>
+					<div style="border:5px solid black;" jst-prepend-style="width:80px;border:{{width}}px solid black;margin:{{width}};padding:{{width}}px;background-color:{{color}};">test</div>
+				</div>
+				<div>
+					<div style="border:5px solid black;font-size: 46px;" jst-append-style="width:80px;border:{{width}}px solid black;margin:{{width}};padding:{{width}}px;background-color:{{color}}">test</div>
 				</div>
 				attributes other than predefined directives, which starts with 'jst-' will be outputed without 'jst-'.  
 				used for img's src attribute to avoid network error.
